@@ -10,18 +10,23 @@ import fr.gradignan.rpgmaps.feature.game.ui.GameScreenRoute
 import kotlinx.serialization.Serializable
 
 @Serializable
-internal class Game(val username: String)
+internal class Game(
+    val username: String,
+    val roomId: Int
+)
 
 fun NavController.navigateToGame(
     username: String,
+    roomId: Int,
     navOptions: NavOptions? = null
-) = navigate(route = Game(username), navOptions)
+) = navigate(route = Game(username, roomId), navOptions)
 
 fun NavGraphBuilder.gameScreen(
     onBack: () -> Unit,
 ) {
     composable<Game> { entry ->
         val username = entry.toRoute<Game>().username
+        val roomId = entry.toRoute<Game>().roomId
         GameScreenRoute(
             username = username,
             onBack = onBack

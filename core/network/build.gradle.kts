@@ -14,6 +14,7 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.core.common)
             implementation(projects.core.model)
+            implementation(libs.kotlinx.coroutines.core)
             implementation(libs.ktor.client.auth)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.client.core)
@@ -31,13 +32,12 @@ kotlin {
 buildkonfig {
     packageName = "fr.gradignan.rpgmaps.core.network"
 
-    // default config is required
     defaultConfigs {
         val hostName = "megalofidi.fr"
         buildConfigField(STRING, "hostName", hostName)
         buildConfigField(STRING, "baseUrl", "https://$hostName")
     }
-    // flavor is passed as a first argument of defaultConfigs
+    // flavor is passed from gradle.properties file
     defaultConfigs("dev") {
         val hostName = "localhost:8000"
         buildConfigField(STRING, "hostName", hostName)

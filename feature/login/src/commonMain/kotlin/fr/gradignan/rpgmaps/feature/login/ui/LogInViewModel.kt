@@ -3,7 +3,7 @@ package fr.gradignan.rpgmaps.feature.login.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import fr.gradignan.rpgmaps.core.common.Resource
-import fr.gradignan.rpgmaps.core.data.auth.AuthRepository
+import fr.gradignan.rpgmaps.core.model.AuthRepository
 import fr.gradignan.rpgmaps.core.model.Auth
 import fr.gradignan.rpgmaps.feature.login.model.LogInState
 import fr.gradignan.rpgmaps.feature.login.model.LogInUiState
@@ -20,8 +20,8 @@ class LogInViewModel(private val authRepository: AuthRepository): ViewModel() {
 
     init {
         viewModelScope.launch {
-            _uiState.update { it.copy(logInState = LogInState.Loading) }
             if (authRepository.checkToken() is Resource.Success) {
+                //TODO("When no Internet, print an error message instead of login")
                 _uiState.update { it.copy(logInState = LogInState.Success) }
             } else {
                 _uiState.update { it.copy(logInState = LogInState.Empty) }

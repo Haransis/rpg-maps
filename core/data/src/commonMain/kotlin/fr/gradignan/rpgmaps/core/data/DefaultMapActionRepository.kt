@@ -1,15 +1,17 @@
-package fr.gradignan.rpgmaps.core.data.mapAction
+package fr.gradignan.rpgmaps.core.data
 
 import com.russhwolf.settings.Settings
 import fr.gradignan.rpgmaps.core.common.Resource
+import fr.gradignan.rpgmaps.core.common.map
 import fr.gradignan.rpgmaps.core.model.map
 import fr.gradignan.rpgmaps.core.model.MapAction
+import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
-import fr.gradignan.rpgmaps.core.network.network.WebSocketService
-import fr.gradignan.rpgmaps.core.network.network.model.Payload
-import fr.gradignan.rpgmaps.core.network.network.model.ServerMessage
-import fr.gradignan.rpgmaps.core.network.network.model.toMapAction
+import fr.gradignan.rpgmaps.core.network.WebSocketClient
+import fr.gradignan.rpgmaps.core.network.model.Payload
+import fr.gradignan.rpgmaps.core.network.model.ServerMessage
+import fr.gradignan.rpgmaps.core.network.model.toMapAction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,18 +24,18 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 
 class DefaultMapActionRepository(
-    private val webSocketService: WebSocketService,
+    private val webSocketClient: WebSocketClient,
     private val settings: Settings,
     private val externalScope: CoroutineScope
 ): MapActionRepository {
 
-    private val actionsFlow: Flow<Resource<MapAction>> = webSocketService.getPayloadsFlow()
+    private val actionsFlow: Flow<Resource<MapAction>> = webSocketClient.getPayloadsFlow()
         .map (::toMapActionResource)
         .onStart { externalScope.launch {
             val token = settings.getString("jwt_token", "no_token")
-            webSocketService.connect(token)
+            webSocketClient.connect(token)
         } }
-        .onCompletion { externalScope.launch { webSocketService.close() } }
+        .onCompletion { externalScope.launch { webSocketClient.close() } }
         .shareIn(externalScope, SharingStarted.WhileSubscribed())
 
     // Using Flow<T>.filterIsInstance here is not possible due to type erasure
@@ -54,6 +56,6 @@ class DefaultMapActionRepository(
     override fun getMapUpdatesFlow(): Flow<Resource<MapUpdate>> = mapUpdatesFlow
     override fun getMapEffectsFlow(): Flow<MapEffect> = mapEffectsFlow
     override fun endTurn() {
-        webSocketService.sendMessage(ServerMessage("Next", Payload.ServerNext(0)))
+        webSocketClient.sendMessage(ServerMessage("Next", Payload.ServerNext(0)))
     }
 }

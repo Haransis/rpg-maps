@@ -1,9 +1,6 @@
-package fr.gradignan.rpgmaps.core.data.mapAction
+package fr.gradignan.rpgmaps.core.model
 
 import fr.gradignan.rpgmaps.core.common.Resource
-import fr.gradignan.rpgmaps.core.model.MapAction
-import fr.gradignan.rpgmaps.core.model.MapEffect
-import fr.gradignan.rpgmaps.core.model.MapUpdate
 import kotlinx.coroutines.flow.Flow
 
 interface MapActionRepository {

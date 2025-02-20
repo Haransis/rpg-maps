@@ -5,8 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.common.Resource
-import fr.gradignan.rpgmaps.core.data.mapAction.MapActionRepository
-import fr.gradignan.rpgmaps.core.model.Character
+import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
 import fr.gradignan.rpgmaps.feature.game.model.HUDState

@@ -4,8 +4,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
 import fr.gradignan.rpgmaps.feature.login.model.LogInState
 import fr.gradignan.rpgmaps.feature.login.model.LogInUiState
@@ -53,13 +56,13 @@ fun LogInScreen(
     modifier: Modifier = Modifier,
     viewModel: LogInViewModel = koinViewModel<LogInViewModel>()
 ) {
-    Surface (
-        shape = RoundedCornerShape(5),
-        modifier = modifier.padding(MaterialTheme.spacing.extraLarge)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.fillMaxSize()
     ) {
-        val uiState = viewModel.uiState.collectAsState(LogInUiState())
-        when (uiState.value.logInState) {
-            LogInState.CheckingToken -> CircularProgressIndicator()
+        val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+        when (uiState.logInState) {
+            LogInState.CheckingToken -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             is LogInState.Success -> onLogIn()
             else -> LogInForm(
                 uiState = uiState,
@@ -72,80 +75,85 @@ fun LogInScreen(
 }
 
 @Composable
-fun LogInForm(uiState: State<LogInUiState>, onNameChange: (String) -> Unit, onPasswordChange: (String) -> Unit, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(
-            MaterialTheme.spacing.medium,
-            Alignment.CenterVertically
-        ),
-        modifier = modifier
+fun LogInForm(uiState: LogInUiState, onNameChange: (String) -> Unit, onPasswordChange: (String) -> Unit, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(5),
+        modifier = modifier.padding(MaterialTheme.spacing.extraLarge)
+            .fillMaxSize()
     ) {
-        val (first, second, third) = remember { FocusRequester.createRefs() }
-        LaunchedEffect(Unit) {
-            first.requestFocus()
-        }
-        TextField(
-            value = uiState.value.username,
-            placeholder = { Text("Username") },
-            onValueChange = onNameChange,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Done,
-                showKeyboardOnFocus = true
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { onSubmit() }
-            ),
-            enabled = uiState.value.logInState !is LogInState.Loading,
-            modifier = Modifier.focusRequester(first).focusProperties { next = second }
-        )
-        var passwordVisible: Boolean by remember { mutableStateOf(false) }
-        TextField(
-            value = uiState.value.password,
-            placeholder = { Text("Password") },
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                val image =
-                    if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                val desc = if (passwordVisible) "Hide password" else "Show password"
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(
+                MaterialTheme.spacing.medium,
+                Alignment.CenterVertically
+            )
+        ) {
+            val (first, second, third) = remember { FocusRequester.createRefs() }
+            LaunchedEffect(Unit) {
+                first.requestFocus()
+            }
+            TextField(
+                value = uiState.username,
+                placeholder = { Text("Username") },
+                onValueChange = onNameChange,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Done,
+                    showKeyboardOnFocus = true
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { onSubmit() }
+                ),
+                enabled = uiState.logInState !is LogInState.Loading,
+                modifier = Modifier.focusRequester(first).focusProperties { next = second }
+            )
+            var passwordVisible: Boolean by remember { mutableStateOf(false) }
+            TextField(
+                value = uiState.password,
+                placeholder = { Text("Password") },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image =
+                        if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    val desc = if (passwordVisible) "Hide password" else "Show password"
 
-                IconButton(
-                    onClick = { passwordVisible = !passwordVisible }
-                ) {
-                    Icon(imageVector = image, contentDescription = desc)
-                }
-            },
-            onValueChange = onPasswordChange,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done,
-                showKeyboardOnFocus = true
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { onSubmit() }
-            ),
-            enabled = uiState.value.logInState !is LogInState.Loading,
-            modifier = Modifier.focusRequester(second).focusProperties { next = third }
-        )
-        val error = remember {
-            if (uiState.value.logInState is LogInState.Error)
-                (uiState.value.logInState as LogInState.Error).error.message ?: "Unknown error"
-            else ""
-        }
-        AnimatedVisibility(error.isNotEmpty()) {
-            Text(
-                color = MaterialTheme.colorScheme.error,
-                text = error
+                    IconButton(
+                        onClick = { passwordVisible = !passwordVisible }
+                    ) {
+                        Icon(imageVector = image, contentDescription = desc)
+                    }
+                },
+                onValueChange = onPasswordChange,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                    showKeyboardOnFocus = true
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { onSubmit() }
+                ),
+                enabled = uiState.logInState !is LogInState.Loading,
+                modifier = Modifier.focusRequester(second).focusProperties { next = third }
+            )
+            val error = remember {
+                if (uiState.logInState is LogInState.Error)
+                    uiState.logInState.error.message ?: "Unknown error"
+                else ""
+            }
+            AnimatedVisibility(error.isNotEmpty()) {
+                Text(
+                    color = MaterialTheme.colorScheme.error,
+                    text = error
+                )
+            }
+            LoadingButton(
+                enabled = uiState.isSubmitEnabled,
+                isLoading = uiState.logInState is LogInState.Loading,
+                onClick = onSubmit,
+                modifier = Modifier.focusable().focusRequester(third).focusProperties { next = first }
             )
         }
-        LoadingButton(
-            enabled = uiState.value.isSubmitEnabled,
-            isLoading = uiState.value.logInState is LogInState.Loading,
-            onClick = onSubmit,
-            modifier = Modifier.focusable().focusRequester(third).focusProperties { next = first }
-        )
     }
 }
 

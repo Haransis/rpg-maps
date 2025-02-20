@@ -5,7 +5,6 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.navOptions
-import androidx.navigation.toRoute
 import fr.gradignan.rpgmaps.feature.home.ui.HomeScreen
 import kotlinx.serialization.Serializable
 
@@ -18,12 +17,12 @@ fun NavController.navigateToHome(
 
 fun NavGraphBuilder.homeScreen(
     onCreateMapClick: () -> Unit,
-    onGameClick: (String) -> Unit,
+    onRoomClick: (String, Int) -> Unit,
 ) {
     composable<Home> {
         HomeScreen(
             onCreateMapClick = onCreateMapClick,
-            onGameClick = onGameClick
+            onRoomClick = onRoomClick
         )
     }
 }

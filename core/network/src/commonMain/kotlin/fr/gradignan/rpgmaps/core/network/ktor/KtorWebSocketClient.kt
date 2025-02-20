@@ -1,11 +1,11 @@
-package fr.gradignan.rpgmaps.core.network.network.ktor
+package fr.gradignan.rpgmaps.core.network.ktor
 
 import fr.gradignan.rpgmaps.core.common.Resource
-import fr.gradignan.rpgmaps.core.network.network.WebSocketService
-import fr.gradignan.rpgmaps.core.network.network.model.Payload
-import fr.gradignan.rpgmaps.core.network.network.model.ServerMessage
+import fr.gradignan.rpgmaps.core.network.model.Payload
+import fr.gradignan.rpgmaps.core.network.model.ServerMessage
 import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.network.BuildKonfig
+import fr.gradignan.rpgmaps.core.network.WebSocketClient
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.http.HttpHeaders
@@ -20,10 +20,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-class WebSocketClient(
+class KtorWebSocketClient(
     private val client: HttpClient,
     private val encoder: Json
-) : WebSocketService {
+) : WebSocketClient {
 
     private val _incomingPayloads = MutableSharedFlow<Resource<Payload>>()
 

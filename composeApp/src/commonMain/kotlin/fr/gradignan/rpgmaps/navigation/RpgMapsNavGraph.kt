@@ -39,7 +39,7 @@ fun RpgMapsNavGraph(
         )
         homeScreen(
             onCreateMapClick = { navController.navigateToCreateMap() },
-            onGameClick = { username -> navController.navigateToGame(username)}
+            onRoomClick = { username, roomId -> navController.navigateToGame(username, roomId)}
         )
         gameScreen(
             onBack = navController::navigateUp

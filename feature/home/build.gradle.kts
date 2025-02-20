@@ -11,6 +11,7 @@ kotlin {
             implementation(projects.core.common)
             implementation(projects.core.data)
             implementation(projects.core.model)
+            implementation(projects.core.network)
             implementation(projects.core.ui)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.viewmodel.compose)

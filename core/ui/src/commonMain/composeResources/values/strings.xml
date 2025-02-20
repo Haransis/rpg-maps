@@ -1,0 +1,11 @@
+<resources>
+    <string name="error_no_internet">No internet</string>
+    <string name="error_not_found">Not found, retry with a better perception !</string>
+    <string name="error_serialization">The data could not be parsed</string>
+    <string name="error_internal_server">Oops, our server missed its dice roll</string>
+    <string name="error_forbidden">Umm, you shouldn't be here</string>
+    <string name="error_http_unknown">Could not connect, have you tried telepathy ?</string>
+    <string name="error_no_data">Could not find the resource</string>
+    <string name="error_local_unknown">Something unexpected happened when accessing storage</string>
+    <string name="error_websocket_unknown">Something unexpected happened with the room</string>
+</resources>

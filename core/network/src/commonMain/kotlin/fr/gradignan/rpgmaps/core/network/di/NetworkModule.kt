@@ -1,10 +1,10 @@
-package fr.gradignan.rpgmaps.core.network.network.di
+package fr.gradignan.rpgmaps.core.network.di
 
 import com.russhwolf.settings.Settings
-import fr.gradignan.rpgmaps.core.network.network.HttpClientService
-import fr.gradignan.rpgmaps.core.network.network.WebSocketService
-import fr.gradignan.rpgmaps.core.network.network.ktor.NetworkService
-import fr.gradignan.rpgmaps.core.network.network.ktor.WebSocketClient
+import fr.gradignan.rpgmaps.core.network.NetworkHttpClient
+import fr.gradignan.rpgmaps.core.network.WebSocketClient
+import fr.gradignan.rpgmaps.core.network.ktor.KtorHttpClient
+import fr.gradignan.rpgmaps.core.network.ktor.KtorWebSocketClient
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.auth.Auth
@@ -71,10 +71,10 @@ val NetworkModule = module {
             }
         }
     }
-    single<HttpClientService> {
-        NetworkService(get())
+    single<NetworkHttpClient> {
+        KtorHttpClient(get())
     }
-    single<WebSocketService> {
-        WebSocketClient(get(), get())
+    single<WebSocketClient> {
+        KtorWebSocketClient(get(), get())
     }
 }

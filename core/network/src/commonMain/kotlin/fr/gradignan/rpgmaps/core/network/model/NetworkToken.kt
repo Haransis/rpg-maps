@@ -1,4 +1,4 @@
-package fr.gradignan.rpgmaps.core.network.network.model
+package fr.gradignan.rpgmaps.core.network.model
 
 import fr.gradignan.rpgmaps.core.model.Token
 import kotlinx.serialization.Serializable

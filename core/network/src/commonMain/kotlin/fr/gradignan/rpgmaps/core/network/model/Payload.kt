@@ -1,4 +1,4 @@
-package fr.gradignan.rpgmaps.core.network.network.model
+package fr.gradignan.rpgmaps.core.network.model
 
 import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.MapEffect

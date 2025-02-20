@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -148,7 +149,8 @@ fun GameContent(
             sprintEnabled = hudState.sprintEnabled,
             onBack = onBack,
             onEndTurn = onEndTurn,
-            onSprintChecked = onSprintChecked
+            onSprintChecked = onSprintChecked,
+            modifier = Modifier.fillMaxWidth(0.2f)
         )
         MapContainer(
             previewPath = hudState.previewPath,
@@ -561,7 +563,7 @@ private fun MapSideBar(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxHeight()
+        modifier = modifier.fillMaxSize()
             .padding(MaterialTheme.spacing.small)
     ) {
         Button(onClick = onBack) {
@@ -592,7 +594,7 @@ private fun MapSideBar(
         LazyColumn(
             modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary)
                 .padding(horizontal = MaterialTheme.spacing.small)
-                .fillMaxHeight()
+                .fillMaxSize()
         ) {
             items(logs.size) { index ->
                 Text(logs[index])
