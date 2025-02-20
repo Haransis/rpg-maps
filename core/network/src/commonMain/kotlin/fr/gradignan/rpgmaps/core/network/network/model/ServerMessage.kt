@@ -1,0 +1,74 @@
+package fr.gradignan.rpgmaps.core.network.network.model
+
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.*
+import kotlinx.serialization.encoding.*
+import kotlinx.serialization.json.*
+
+@Serializable(with = ServerMessage.Serializer::class)
+data class ServerMessage(
+    val action: String,
+    val payload: Payload
+) {
+    object Serializer : KSerializer<ServerMessage> {
+        override val descriptor: SerialDescriptor = buildClassSerialDescriptor("ServerMessage") {
+            element<String>("action")
+        }
+
+        override fun deserialize(decoder: Decoder): ServerMessage {
+            require(decoder is JsonDecoder) { "This serializer only supports JSON" }
+            val jsonElement = decoder.decodeJsonElement()
+            val jsonObject = jsonElement.jsonObject
+
+            val action = jsonObject["action"]?.jsonPrimitive?.content
+                ?: throw SerializationException("Missing 'action' field")
+
+            val payload: Payload = when (action) {
+                "Connect" -> decoder.json.decodeFromJsonElement(Payload.ServerConnect.serializer(), jsonObject)
+                "LoadMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerLoadMap.serializer(), jsonObject)
+                "Initiate"   -> decoder.json.decodeFromJsonElement(Payload.ServerInitiate.serializer(), jsonObject)
+                "Move"   -> decoder.json.decodeFromJsonElement(Payload.ServerMove.serializer(), jsonObject)
+                "New Turn"   -> decoder.json.decodeFromJsonElement(Payload.ServerNewTurn.serializer(), jsonObject)
+                "Next"   -> decoder.json.decodeFromJsonElement(Payload.ServerNext.serializer(), jsonObject)
+                "Ping"   -> decoder.json.decodeFromJsonElement(Payload.ServerPing.serializer(), jsonObject)
+                else    -> throw SerializationException("Unknown action: $action")
+            }
+            return ServerMessage(action, payload)
+        }
+
+        override fun serialize(encoder: Encoder, value: ServerMessage) {
+            require(encoder is JsonEncoder) { "This serializer only supports JSON" }
+            val jsonObject = buildJsonObject {
+                put("action", JsonPrimitive(value.action))
+                when (val payload = value.payload) {
+                    is Payload.ServerConnect -> {
+                        put("user", JsonPrimitive(payload.user))
+                    }
+                    is Payload.ServerInitiate -> {
+                        put("characters", encoder.json.encodeToJsonElement(Payload.ServerInitiate.serializer(), payload))
+                    }
+                    is Payload.ServerLoadMap -> {
+                        put("map", JsonPrimitive(payload.map))
+                    }
+                    Payload.ServerNewTurn -> { }
+                    is Payload.ServerMove -> {
+                        put("name", JsonPrimitive(payload.name))
+                        put("x", JsonPrimitive(payload.x))
+                        put("y", JsonPrimitive(payload.y))
+                        put("owner", JsonPrimitive(payload.owner))
+                    }
+                    is Payload.ServerNext -> {
+                        put("ID", JsonPrimitive(payload.id))
+                    }
+                    is Payload.ServerPing -> {
+                        put("x", JsonPrimitive(payload.x))
+                        put("y", JsonPrimitive(payload.y))
+                    }
+                }
+            }
+            encoder.encodeJsonElement(jsonObject)
+        }
+    }
+}
