@@ -10,7 +10,9 @@ import rpg_maps.core.ui.generated.resources.error_no_data
 import rpg_maps.core.ui.generated.resources.error_no_internet
 import rpg_maps.core.ui.generated.resources.error_not_found
 import rpg_maps.core.ui.generated.resources.error_serialization
+import rpg_maps.core.ui.generated.resources.error_unauthorized
 import rpg_maps.core.ui.generated.resources.error_websocket_unknown
+import rpg_maps.core.ui.generated.resources.error_wrong_credentials
 
 fun DataError.toUiText(): UiText {
     val stringRes = when(this) {
@@ -20,9 +22,11 @@ fun DataError.toUiText(): UiText {
         DataError.Http.SERVER_ERROR -> Res.string.error_internal_server
         DataError.Http.FORBIDDEN -> Res.string.error_forbidden
         DataError.Http.UNKNOWN -> Res.string.error_http_unknown
+        DataError.Http.UNAUTHORIZED -> Res.string.error_unauthorized
         DataError.Local.NO_DATA -> Res.string.error_no_data
         DataError.Local.UNKNOWN -> Res.string.error_local_unknown
         DataError.WebSocket.UNKNOWN -> Res.string.error_websocket_unknown
+        DataError.Http.WRONG_CREDENTIALS -> Res.string.error_wrong_credentials
     }
 
     return UiText.StringResourceId(stringRes)

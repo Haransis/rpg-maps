@@ -49,6 +49,7 @@ compose.desktop {
         mainClass = "fr.gradignan.rpgmaps.MainKt"
 
         nativeDistributions {
+            modules("java.net.http")
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "fr.gradignan.rpgmaps"
             packageVersion = "1.0.0"

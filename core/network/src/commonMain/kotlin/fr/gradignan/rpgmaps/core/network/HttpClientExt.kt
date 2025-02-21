@@ -35,6 +35,7 @@ suspend inline fun <reified T> responseToResult(
                 Result.Error(DataError.Http.SERIALIZATION)
             }
         }
+        401 -> Result.Error(DataError.Http.UNAUTHORIZED)
         403 -> Result.Error(DataError.Http.FORBIDDEN)
         404 -> Result.Error(DataError.Http.NOT_FOUND)
         in 500..599 -> Result.Error(DataError.Http.SERVER_ERROR)

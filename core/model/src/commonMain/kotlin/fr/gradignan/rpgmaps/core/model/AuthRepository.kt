@@ -4,7 +4,7 @@ import fr.gradignan.rpgmaps.core.common.Resource
 import kotlinx.coroutines.flow.Flow
 
 interface AuthRepository {
-    suspend fun logIn(auth: Auth): Resource<Token>
+    suspend fun logIn(auth: Auth): EmptyResult<DataError.Http>
     fun getUsername(): Result<String, DataError.Local>
-    suspend fun checkToken(): Resource<Unit>
+    suspend fun checkToken(): EmptyResult<DataError.Http>
 }

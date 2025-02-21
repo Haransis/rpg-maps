@@ -2,6 +2,10 @@ package fr.gradignan.rpgmaps.feature.login.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,8 +31,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,11 +63,15 @@ fun LogInScreen(
         modifier = modifier.fillMaxSize()
     ) {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        when (uiState.logInState) {
+        when (val state = uiState) {
             LogInState.CheckingToken -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            is LogInState.ConnectionError -> Text(
+                color = MaterialTheme.colorScheme.error,
+                text = state.error.asString()
+            )
             is LogInState.Success -> onLogIn()
-            else -> LogInForm(
-                uiState = uiState,
+            is LogInState.LogIn -> LogInForm(
+                uiState = state,
                 onNameChange = viewModel::onNameChange,
                 onPasswordChange = viewModel::onPasswordChange,
                 onSubmit = viewModel::onSubmit
@@ -75,7 +81,13 @@ fun LogInScreen(
 }
 
 @Composable
-fun LogInForm(uiState: LogInUiState, onNameChange: (String) -> Unit, onPasswordChange: (String) -> Unit, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
+fun LogInForm(
+    uiState: LogInState.LogIn,
+    onNameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Surface(
         shape = RoundedCornerShape(5),
         modifier = modifier.padding(MaterialTheme.spacing.extraLarge)
@@ -104,7 +116,7 @@ fun LogInForm(uiState: LogInUiState, onNameChange: (String) -> Unit, onPasswordC
                 keyboardActions = KeyboardActions(
                     onDone = { onSubmit() }
                 ),
-                enabled = uiState.logInState !is LogInState.Loading,
+                enabled = !uiState.isLoading,
                 modifier = Modifier.focusRequester(first).focusProperties { next = second }
             )
             var passwordVisible: Boolean by remember { mutableStateOf(false) }
@@ -133,23 +145,25 @@ fun LogInForm(uiState: LogInUiState, onNameChange: (String) -> Unit, onPasswordC
                 keyboardActions = KeyboardActions(
                     onDone = { onSubmit() }
                 ),
-                enabled = uiState.logInState !is LogInState.Loading,
+                enabled = !uiState.isLoading,
                 modifier = Modifier.focusRequester(second).focusProperties { next = third }
             )
-            val error = remember {
-                if (uiState.logInState is LogInState.Error)
-                    uiState.logInState.error.message ?: "Unknown error"
-                else ""
-            }
-            AnimatedVisibility(error.isNotEmpty()) {
-                Text(
-                    color = MaterialTheme.colorScheme.error,
-                    text = error
-                )
+            AnimatedVisibility(
+                visible = uiState.error != null,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
+            ) {
+                uiState.error?.let { error ->
+                    Text(
+                        text = error.asString(),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.animateContentSize()
+                    )
+                }
             }
             LoadingButton(
                 enabled = uiState.isSubmitEnabled,
-                isLoading = uiState.logInState is LogInState.Loading,
+                isLoading = uiState.isLoading,
                 onClick = onSubmit,
                 modifier = Modifier.focusable().focusRequester(third).focusProperties { next = first }
             )

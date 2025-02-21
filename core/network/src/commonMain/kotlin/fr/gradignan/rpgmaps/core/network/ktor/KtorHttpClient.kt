@@ -2,6 +2,7 @@ package fr.gradignan.rpgmaps.core.network.ktor
 
 import fr.gradignan.rpgmaps.core.common.Resource
 import fr.gradignan.rpgmaps.core.model.DataError
+import fr.gradignan.rpgmaps.core.model.EmptyResult
 import fr.gradignan.rpgmaps.core.model.Result
 import fr.gradignan.rpgmaps.core.model.Room
 import fr.gradignan.rpgmaps.core.network.BuildKonfig
@@ -28,36 +29,15 @@ class KtorHttpClient(private val client: HttpClient): NetworkHttpClient {
         client.authProvider<BearerAuthProvider>()?.clearToken()
     }
 
-    override suspend fun logIn(auth: NetworkAuth): Resource<NetworkToken> {
-        try {
-            val response: HttpResponse = client.post("${BuildKonfig.baseUrl}/users/login") {
-                contentType(ContentType.Application.Json)
-                setBody(auth)
-            }
-
-            return if (response.status == HttpStatusCode.OK) {
-                Resource.Success(response.body())
-            } else {
-                val error: ErrorResponse = response.body<ErrorResponse>()
-                Resource.Error(Throwable(error.detail))
-            }
-        } catch (e: Throwable) {
-            return Resource.Error(e)
+    override suspend fun logIn(auth: NetworkAuth): Result<NetworkToken, DataError.Http> = safeCall {
+        client.post("${BuildKonfig.baseUrl}/users/login") {
+            contentType(ContentType.Application.Json)
+            setBody(auth)
         }
     }
 
-    override suspend fun checkToken(): Resource<Unit> {
-        try {
-            val response: HttpResponse = client.post("${BuildKonfig.baseUrl}/users/check-token")
-            return if (response.status == HttpStatusCode.OK) {
-                Resource.Success(Unit)
-            } else {
-                val error: ErrorResponse = response.body<ErrorResponse>()
-                Resource.Error(Throwable(error.detail))
-            }
-        } catch (e: Throwable) {
-            return Resource.Error(e)
-        }
+    override suspend fun checkToken(): EmptyResult<DataError.Http> = safeCall {
+        client.post("${BuildKonfig.baseUrl}/users/check-token")
     }
 
     override suspend fun getRooms(): Result<List<NetworkRoom>, DataError.Http> = safeCall {

@@ -13,6 +13,26 @@ inline fun <T, E: Error, R> Result<T, E>.map(map: (T) -> R): Result<R, E> {
     }
 }
 
+inline fun <T, E: Error> Result<T, E>.mapError(map: (E) -> E): Result<T, E> {
+    return when(this) {
+        is Result.Error -> Result.Error(map(error))
+        is Result.Success -> Result.Success(data)
+    }
+}
+
+inline fun <T, E: Error> Result<T, E>.mapErrorIf(e: E, map: (E) -> E): Result<T, E> {
+    return when(this) {
+        is Result.Error -> {
+            if (error==e) {
+                return Result.Error(map(error))
+            } else {
+                return Result.Error(error)
+            }
+        }
+        is Result.Success -> Result.Success(data)
+    }
+}
+
 fun <T, E: Error> Result<T, E>.asEmptyDataResult(): EmptyResult<E> {
     return map {  }
 }

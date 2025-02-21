@@ -1,9 +1,17 @@
 package fr.gradignan.rpgmaps.feature.login.model
 
+import fr.gradignan.rpgmaps.core.ui.error.UiText
+
 sealed class LogInState {
-    data object Empty: LogInState()
-    data object Loading: LogInState()
-    data object CheckingToken: LogInState()
-    data class Error(val error: Throwable): LogInState()
-    data object Success: LogInState()
+    data object CheckingToken: LogInState() // other category
+    data class ConnectionError(val error: UiText): LogInState() // other category
+    data object Success: LogInState() // other category
+
+    data class LogIn(
+        val isLoading: Boolean = false,
+        val error: UiText? = null,
+        val isSubmitEnabled: Boolean = false,
+        val username: String = "",
+        val password: String = "",
+    ): LogInState()
 }

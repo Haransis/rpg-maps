@@ -7,6 +7,8 @@ sealed interface DataError: Error {
         SERIALIZATION,
         SERVER_ERROR,
         FORBIDDEN,
+        UNAUTHORIZED,
+        WRONG_CREDENTIALS,
         UNKNOWN
     }
     enum class WebSocket: DataError {
