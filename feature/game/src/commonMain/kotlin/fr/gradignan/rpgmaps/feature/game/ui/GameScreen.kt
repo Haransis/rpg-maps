@@ -86,18 +86,10 @@ const val CHARACTER_RADIUS = 20
 
 @Composable
 fun GameScreenRoute(
-    username: String,
-    roomId: Int,
-    admin: Boolean,
+    viewModel: GameViewModel,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: GameViewModel = koinViewModel<GameViewModel>(),
+    modifier: Modifier = Modifier
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.setName(username)
-        viewModel.setRoomId(roomId)
-        viewModel.setAdmin(admin)
-    }
     GameScreen(
         onBack = onBack,
         viewModel = viewModel,

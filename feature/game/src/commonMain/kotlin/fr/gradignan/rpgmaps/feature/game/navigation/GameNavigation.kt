@@ -1,5 +1,6 @@
 package fr.gradignan.rpgmaps.feature.game.navigation
 
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
@@ -7,7 +8,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import fr.gradignan.rpgmaps.core.model.Room
 import fr.gradignan.rpgmaps.feature.game.ui.GameScreenRoute
+import fr.gradignan.rpgmaps.feature.game.ui.GameViewModel
 import kotlinx.serialization.Serializable
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Serializable
 internal class Game(
@@ -26,11 +30,8 @@ fun NavGraphBuilder.gameScreen(
 ) {
     composable<Game> { entry ->
         with(entry.toRoute<Game>()) {
-            // pass arguments directly as Game ?
             GameScreenRoute(
-                roomId = roomId,
-                admin = admin,
-                username = username,
+                viewModel = koinViewModel { parametersOf(username, roomId, admin) },
                 onBack = onBack
             )
         }

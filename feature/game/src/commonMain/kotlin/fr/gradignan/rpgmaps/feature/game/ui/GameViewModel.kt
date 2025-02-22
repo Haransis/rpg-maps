@@ -27,11 +27,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class GameViewModel(private val mapActionRepository: MapActionRepository): ViewModel() {
+class GameViewModel(
+    private var username: String,
+    private var roomId: Int,
+    private var admin: Boolean,
+    private val mapActionRepository: MapActionRepository
+): ViewModel() {
 
-    private var username = ""
+    /*private var username = ""
     private var roomId = 0
-    private var admin = false
+    private var admin = false*/
     private val mapResourceUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
     private val mapEffects: Flow<MapEffect> = mapActionRepository.getMapEffectsFlow()
 
