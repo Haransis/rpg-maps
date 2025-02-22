@@ -38,7 +38,7 @@ import rpg_maps.feature.home.generated.resources.rooms
 
 @Composable
 fun HomeScreen(
-    onRoomClick: (String, Int) -> Unit,
+    onRoomClick: (Room) -> Unit,
     onCreateMapClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel<HomeViewModel>()
@@ -72,7 +72,7 @@ fun HomeScreenContent(
     rooms: List<Room>,
     errorMessage: UiText?,
     isLoadingRooms: Boolean,
-    onRoomClick: (String, Int) -> Unit,
+    onRoomClick: (Room) -> Unit,
     onCreateMapClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -89,7 +89,7 @@ fun HomeScreenContent(
             rooms = rooms,
             errorMessage = errorMessage,
             isLoadingRooms = isLoadingRooms,
-            onRoomClick = { id -> onRoomClick(username, id) }
+            onRoomClick = onRoomClick
         )
         Text(
             text = stringResource(Res.string.gm_options),
@@ -106,7 +106,7 @@ fun RoomSection(
     rooms: List<Room>,
     errorMessage: UiText?,
     isLoadingRooms: Boolean,
-    onRoomClick: (Int) -> Unit,
+    onRoomClick: (Room) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box (
@@ -133,21 +133,21 @@ fun RoomSection(
 @Composable
 fun RoomList(
     rooms: List<Room>,
-    onRoomClick: (Int) -> Unit,
+    onRoomClick: (Room) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyRow(modifier) {
         items(rooms.size) { index ->
             RoomItem(
                 room = rooms[index],
-                onRoomClick = onRoomClick
+                onClick = { onRoomClick(rooms[index]) }
             )
         }
     }
 }
 
 @Composable
-fun RoomItem(room: Room, onRoomClick: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun RoomItem(room: Room, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.primary,
         shape = RoundedCornerShape(CornerSize(MaterialTheme.size.extraSmall)),
@@ -155,7 +155,7 @@ fun RoomItem(room: Room, onRoomClick: (Int) -> Unit, modifier: Modifier = Modifi
             .fillMaxHeight()
             .width(200.dp)
             .padding(MaterialTheme.spacing.small)
-            .clickable { onRoomClick(room.roomId) }
+            .clickable { onClick() }
     ) {
         Column  {
             Text(room.name)

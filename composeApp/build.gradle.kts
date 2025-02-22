@@ -34,6 +34,7 @@ kotlin {
         
         commonMain.dependencies {
             implementation(projects.core.common)
+            implementation(projects.core.model)
             implementation(projects.core.ui)
             implementation(projects.feature.createMap)
             implementation(projects.feature.game)

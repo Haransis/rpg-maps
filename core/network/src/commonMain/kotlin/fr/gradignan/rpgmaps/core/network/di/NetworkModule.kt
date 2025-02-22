@@ -75,6 +75,6 @@ val NetworkModule = module {
         KtorHttpClient(get())
     }
     single<WebSocketClient> {
-        KtorWebSocketClient(get(), get())
+        KtorWebSocketClient(get(),get(), get())
     }
 }

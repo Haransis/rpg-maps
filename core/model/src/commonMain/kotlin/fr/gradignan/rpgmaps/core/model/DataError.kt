@@ -12,6 +12,7 @@ sealed interface DataError: Error {
         UNKNOWN
     }
     enum class WebSocket: DataError {
+        SERIALIZATION,
         UNKNOWN
     }
     enum class Local: DataError {

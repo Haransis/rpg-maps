@@ -1,11 +1,16 @@
 package fr.gradignan.rpgmaps.feature.game.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -16,17 +21,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,10 +63,10 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.common.roundToDecimals
 import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.MapEffect
+import fr.gradignan.rpgmaps.core.ui.error.UiText
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
 import fr.gradignan.rpgmaps.feature.game.model.HUDState
 import fr.gradignan.rpgmaps.feature.game.model.MapEffectsState
@@ -81,12 +87,16 @@ const val CHARACTER_RADIUS = 20
 @Composable
 fun GameScreenRoute(
     username: String,
+    roomId: Int,
+    admin: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: GameViewModel = koinViewModel<GameViewModel>()
+    viewModel: GameViewModel = koinViewModel<GameViewModel>(),
 ) {
     LaunchedEffect(Unit) {
         viewModel.setName(username)
+        viewModel.setRoomId(roomId)
+        viewModel.setAdmin(admin)
     }
     GameScreen(
         onBack = onBack,
@@ -115,7 +125,7 @@ fun GameScreen(
             }
         }
         is MapOverlayState.UiStateMap -> {
-            GameContent(
+            GameContent (
                 onBack = onBack,
                 onEndTurn = viewModel::onEndTurn,
                 onSprintChecked = viewModel::onSprintChecked,
@@ -157,6 +167,7 @@ fun GameContent(
             selectedCharacter = hudState.selectedCharacter,
             pings = effectsState.pings,
             characters = overlayState.characters,
+            errorMessage = overlayState.errorMessage,
             onMapClick = onMapClick,
             onUnselect = onUnselect
         )
@@ -169,6 +180,7 @@ private fun MapContainer(
     selectedCharacter: Character?,
     pings: List<MapEffect.Ping>,
     characters: List<Character>,
+    errorMessage: UiText?,
     onMapClick: (Offset) -> Unit,
     onUnselect: () -> Unit,
     modifier: Modifier = Modifier
@@ -191,11 +203,28 @@ private fun MapContainer(
             onMapClick = onMapClick,
             onUnselect = onUnselect
         )
-
         MapControls(
             mapTransformState = mapTransformState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+        AnimatedVisibility(
+            visible = errorMessage != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+            modifier = Modifier.align(Alignment.TopStart)
+                .padding(MaterialTheme.spacing.small)
+        ) {
+            errorMessage?.let { error ->
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        text = "${error.asString()} ..."
+                    )
+                }
+            }
+        }
     }
 }
 

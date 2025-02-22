@@ -5,31 +5,34 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
-import fr.gradignan.rpgmaps.feature.game.ui.GameScreen
+import fr.gradignan.rpgmaps.core.model.Room
 import fr.gradignan.rpgmaps.feature.game.ui.GameScreenRoute
 import kotlinx.serialization.Serializable
 
 @Serializable
 internal class Game(
     val username: String,
-    val roomId: Int
+    val roomId: Int,
+    val admin: Boolean
 )
 
 fun NavController.navigateToGame(
-    username: String,
-    roomId: Int,
+    room: Room,
     navOptions: NavOptions? = null
-) = navigate(route = Game(username, roomId), navOptions)
+) = navigate(route = Game(room.username, room.roomId, room.roleInRoom == "mj"), navOptions)
 
 fun NavGraphBuilder.gameScreen(
     onBack: () -> Unit,
 ) {
     composable<Game> { entry ->
-        val username = entry.toRoute<Game>().username
-        val roomId = entry.toRoute<Game>().roomId
-        GameScreenRoute(
-            username = username,
-            onBack = onBack
-        )
+        with(entry.toRoute<Game>()) {
+            // pass arguments directly as Game ?
+            GameScreenRoute(
+                roomId = roomId,
+                admin = admin,
+                username = username,
+                onBack = onBack
+            )
+        }
     }
 }

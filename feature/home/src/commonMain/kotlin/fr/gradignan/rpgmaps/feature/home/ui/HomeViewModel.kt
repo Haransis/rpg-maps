@@ -5,12 +5,11 @@ import androidx.lifecycle.viewModelScope
 import fr.gradignan.rpgmaps.core.model.AuthRepository
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.RoomRepository
+import fr.gradignan.rpgmaps.core.model.after
 import fr.gradignan.rpgmaps.core.model.onError
 import fr.gradignan.rpgmaps.core.model.onSuccess
-import fr.gradignan.rpgmaps.core.model.then
 import fr.gradignan.rpgmaps.core.ui.error.toUiText
 import fr.gradignan.rpgmaps.feature.home.model.HomeUiState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
@@ -71,7 +70,7 @@ class HomeViewModel(
                             rooms = emptyList()
                         )
                     }
-                }.then {
+                }.after {
                     _state.update {
                         (it as HomeUiState.Success).copy(isLoadingRooms = false)
                     }

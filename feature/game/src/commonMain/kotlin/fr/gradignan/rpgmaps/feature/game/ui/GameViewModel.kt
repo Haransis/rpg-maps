@@ -5,9 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.common.Resource
+import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
+import fr.gradignan.rpgmaps.core.model.Result
+import fr.gradignan.rpgmaps.core.ui.error.toUiText
 import fr.gradignan.rpgmaps.feature.game.model.HUDState
 import fr.gradignan.rpgmaps.feature.game.model.MapEffectsState
 import fr.gradignan.rpgmaps.feature.game.model.MapOverlayState
@@ -27,7 +30,9 @@ import kotlinx.coroutines.launch
 class GameViewModel(private val mapActionRepository: MapActionRepository): ViewModel() {
 
     private var username = ""
-    private val mapResourceUpdates: Flow<Resource<MapUpdate>> = mapActionRepository.getMapUpdatesFlow()
+    private var roomId = 0
+    private var admin = false
+    private val mapResourceUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
     private val mapEffects: Flow<MapEffect> = mapActionRepository.getMapEffectsFlow()
 
     private val _animations = MutableStateFlow(MapEffectsState())
@@ -54,14 +59,14 @@ class GameViewModel(private val mapActionRepository: MapActionRepository): ViewM
 
     private val initialState: MapOverlayState = MapOverlayState.Loading
     val overlayState: StateFlow<MapOverlayState> = mapResourceUpdates
-        .scan(initialState) { previousState, payloadResource ->
+        .scan(initialState) { previousState, payloadResult ->
             val state = (previousState as? MapOverlayState.UiStateMap) ?: MapOverlayState.UiStateMap()
-            when (payloadResource) {
-                is Resource.Success -> {
-                    state.update(payloadResource.data)
+            when (payloadResult) {
+                is Result.Error -> {
+                    state.copy(errorMessage = payloadResult.error.toUiText())
+                    // TODO(make errorMessage disappear after n seconds)
                 }
-                is Resource.Error -> state.copy(errorMessage = payloadResource.exception.message)
-                Resource.Loading -> MapOverlayState.Loading
+                is Result.Success -> state.copy(errorMessage = null).update(payloadResult.data)
             }
         }.stateIn(
             scope = viewModelScope,
@@ -143,5 +148,11 @@ class GameViewModel(private val mapActionRepository: MapActionRepository): ViewM
 
     fun setName(username: String) {
         this.username = username
+    }
+    fun setRoomId(roomId: Int) {
+        this.roomId = roomId
+    }
+    fun setAdmin(admin: Boolean) {
+        this.admin = admin
     }
 }

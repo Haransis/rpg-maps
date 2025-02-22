@@ -17,8 +17,7 @@ suspend inline fun <reified T> safeCall(
     } catch (e: UnresolvedAddressException) {
         return Result.Error(DataError.Http.NO_INTERNET)
     } catch (e: Exception) {
-        // cancellation of coroutine must be swallowed
-        coroutineContext.ensureActive()
+        coroutineContext.ensureActive() // ensure we respect cancellation.
         return Result.Error(DataError.Http.UNKNOWN)
     }
     return responseToResult(response)

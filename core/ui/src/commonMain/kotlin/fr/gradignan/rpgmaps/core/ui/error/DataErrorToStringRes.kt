@@ -27,6 +27,7 @@ fun DataError.toUiText(): UiText {
         DataError.Local.UNKNOWN -> Res.string.error_local_unknown
         DataError.WebSocket.UNKNOWN -> Res.string.error_websocket_unknown
         DataError.Http.WRONG_CREDENTIALS -> Res.string.error_wrong_credentials
+        DataError.WebSocket.SERIALIZATION -> Res.string.error_serialization
     }
 
     return UiText.StringResourceId(stringRes)

@@ -1,6 +1,7 @@
 package fr.gradignan.rpgmaps.feature.game.model
 
 import fr.gradignan.rpgmaps.core.model.Character
+import fr.gradignan.rpgmaps.core.ui.error.UiText
 
 sealed class MapOverlayState {
     data object Loading : MapOverlayState()
@@ -9,6 +10,6 @@ sealed class MapOverlayState {
         val map: String = "",
         val isPlayerTurn: Boolean = false,
         val logs: List<String> = emptyList(),
-        val errorMessage: String? = null
+        val errorMessage: UiText? = null
     ) : MapOverlayState()
 }
