@@ -1,5 +1,6 @@
 package fr.gradignan.rpgmaps.core.network.model
 
+import co.touchlab.kermit.Logger
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -58,6 +59,7 @@ data class ServerMessage(
                         put("x", JsonPrimitive(payload.x))
                         put("y", JsonPrimitive(payload.y))
                         put("owner", JsonPrimitive(payload.owner))
+                        put("id", JsonPrimitive(payload.id))
                     }
                     is Payload.ServerNext -> {
                         put("ID", JsonPrimitive(payload.id))

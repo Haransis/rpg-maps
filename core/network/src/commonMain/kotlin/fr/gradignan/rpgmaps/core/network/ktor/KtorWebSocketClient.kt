@@ -6,10 +6,14 @@ import co.touchlab.kermit.Logger
 import com.russhwolf.settings.Settings
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.EmptyResult
+import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.Result
 import fr.gradignan.rpgmaps.core.model.after
+import fr.gradignan.rpgmaps.core.model.map
 import fr.gradignan.rpgmaps.core.network.BuildKonfig
 import fr.gradignan.rpgmaps.core.network.WebSocketClient
+import fr.gradignan.rpgmaps.core.network.model.toMapAction
+import fr.gradignan.rpgmaps.core.network.model.toServerMessage
 import io.ktor.client.HttpClient
 import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -22,24 +26,29 @@ import io.ktor.websocket.readText
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.coroutineContext
 
+@OptIn(ExperimentalAtomicApi::class)
 class KtorWebSocketClient(
     private val client: HttpClient,
     private val encoder: Json,
     private val settings: Settings
 ) : WebSocketClient {
 
-    private val connectionLock = Mutex()
+    private val activeOperations = AtomicInt(0)
     private var session: WebSocketSession? = null
 
-    private suspend fun connect(): EmptyResult<DataError.Http> = connectionLock.withLock {
+    private suspend fun connect(): EmptyResult<DataError.Http> {
+        activeOperations.addAndFetch(1)
         if (session?.isActive == true) {
             return Result.Success(Unit)
         }
@@ -60,30 +69,30 @@ class KtorWebSocketClient(
         }
     }
 
-    override suspend fun sendMessage(serverMessage: ServerMessage): EmptyResult<DataError> =
-        connectionLock.withLock {
-            when (val connectResult = connect()) {
-                is Result.Success -> {
-                    val ws = session
-                    if (ws == null || !ws.isActive) {
-                        return Result.Error(DataError.WebSocket.UNKNOWN)
-                    }
-                    return try {
-                        val jsonString = encoder.encodeToString(serverMessage)
-                        ws.send(Frame.Text(jsonString))
-                        Result.Success(Unit)
-                    } catch (e: NoTransformationFoundException) {
-                        Result.Error(DataError.WebSocket.SERIALIZATION)
-                    } catch (e: Exception) {
-                        coroutineContext.ensureActive() // ensure we respect cancellation.
-                        Result.Error(DataError.WebSocket.UNKNOWN)
-                    }
+
+    override suspend fun sendMessage(mapAction: MapAction): EmptyResult<DataError> =
+        when (val connectResult = connect()) {
+            is Result.Success -> {
+                val ws = session
+                if (ws == null || !ws.isActive) {
+                    Result.Error(DataError.WebSocket.UNKNOWN)
                 }
-                is Result.Error -> connectResult
+                try {
+                    val jsonString = encoder.encodeToString(mapAction.toServerMessage())
+                    Logger.d("send: $jsonString")
+                    ws!!.send(Frame.Text(jsonString))
+                    Result.Success(Unit)
+                } catch (e: NoTransformationFoundException) {
+                    Result.Error(DataError.WebSocket.SERIALIZATION)
+                } catch (e: Exception) {
+                    coroutineContext.ensureActive() // ensure we respect cancellation.
+                    Result.Error(DataError.WebSocket.UNKNOWN)
+                }
             }
+            is Result.Error -> connectResult
         }.after { close() }
 
-    override fun getPayloadsFlow(): Flow<Result<Payload, DataError>> = flow {
+    override fun getPayloadsFlow(): Flow<Result<MapAction, DataError>> = flow {
             when (val connectResult = connect()) {
                 is Result.Success -> {
                     val ws = session
@@ -106,11 +115,14 @@ class KtorWebSocketClient(
                 is Result.Error -> emit(connectResult)
             }
     }
+        .map(::toMapActionResult)
         .onCompletion { close() }
 
-    private suspend fun close() = connectionLock.withLock {
-        session?.close()
-        session = null
+    private suspend fun close() {
+        if (activeOperations.addAndFetch(-1) == 0) {
+            session?.close()
+            session = null
+        }
     }
 
     private fun processIncomingMessage(jsonString: String): Result<Payload, DataError> {
@@ -124,5 +136,9 @@ class KtorWebSocketClient(
             Result.Error(DataError.WebSocket.UNKNOWN)
         }
     }
-}
 
+    private fun toMapActionResult(payload: Result<Payload, DataError>): Result<MapAction, DataError> {
+        return payload.map { it.toMapAction() }
+    }
+
+}

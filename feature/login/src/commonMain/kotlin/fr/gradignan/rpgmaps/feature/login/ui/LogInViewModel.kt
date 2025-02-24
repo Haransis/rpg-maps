@@ -3,6 +3,7 @@ package fr.gradignan.rpgmaps.feature.login.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import fr.gradignan.rpgmaps.core.common.Resource
+import fr.gradignan.rpgmaps.core.common.updateIfIs
 import fr.gradignan.rpgmaps.core.model.AuthRepository
 import fr.gradignan.rpgmaps.core.model.Auth
 import fr.gradignan.rpgmaps.core.model.DataError
@@ -86,16 +87,6 @@ class LogInViewModel(private val authRepository: AuthRepository): ViewModel() {
 
     private fun isFormValid(username: String, password: String): Boolean {
         return username.isNotBlank() && password.isNotBlank()
-    }
-
-    private inline fun <reified T> MutableStateFlow<*>.updateIfIs(
-        crossinline function: (T) -> Any
-    ) {
-        val current = this.value as? T
-        if (current != null) {
-            @Suppress("UNCHECKED_CAST")
-            (this as MutableStateFlow<T>).update { function(current) as T }
-        }
     }
 }
 

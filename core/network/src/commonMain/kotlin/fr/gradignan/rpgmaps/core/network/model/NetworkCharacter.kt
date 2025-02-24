@@ -26,7 +26,7 @@ fun NetworkCharacter.toExternal(): Character {
     return Character(
         owner = owner,
         name = name,
-        speed = speed,
+        speed = speed.toFloat(),
         id = id,
         color = color,
         cmId = cmId,
@@ -38,3 +38,20 @@ fun NetworkCharacter.toExternal(): Character {
 }
 
 fun List<NetworkCharacter>.toExternal(): List<Character> = map(NetworkCharacter::toExternal)
+
+fun Character.toNetwork(): NetworkCharacter {
+    return NetworkCharacter(
+        owner = owner,
+        name = name,
+        speed = speed.toInt(),
+        id = id,
+        color = color,
+        cmId = cmId,
+        mapId = mapId,
+        characterId = characterId,
+        x = x,
+        y = y
+    )
+}
+
+fun List<Character>.toNetwork(): List<NetworkCharacter> = map(Character::toNetwork)

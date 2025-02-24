@@ -12,5 +12,4 @@ sealed class MapUpdate: MapAction {
     data object NewTurn : MapUpdate()
 
     data class Next(val id: Int) : MapUpdate()
-
 }

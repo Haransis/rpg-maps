@@ -3,83 +3,89 @@ package fr.gradignan.rpgmaps.feature.game.ui
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import co.touchlab.kermit.Logger
-import fr.gradignan.rpgmaps.core.common.Resource
+import fr.gradignan.rpgmaps.core.common.updateIfIs
+import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
 import fr.gradignan.rpgmaps.core.model.Result
+import fr.gradignan.rpgmaps.core.model.onError
 import fr.gradignan.rpgmaps.core.ui.error.toUiText
-import fr.gradignan.rpgmaps.feature.game.model.HUDState
-import fr.gradignan.rpgmaps.feature.game.model.MapEffectsState
-import fr.gradignan.rpgmaps.feature.game.model.MapOverlayState
+import fr.gradignan.rpgmaps.feature.game.model.GameState
+import fr.gradignan.rpgmaps.feature.game.model.PreviewPath
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.scan
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class GameViewModel(
-    private var username: String,
-    private var roomId: Int,
-    private var admin: Boolean,
+    private val username: String,
+    private val roomId: Int,
+    private val admin: Boolean,
     private val mapActionRepository: MapActionRepository
 ): ViewModel() {
-
-    /*private var username = ""
-    private var roomId = 0
-    private var admin = false*/
     private val mapResourceUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
     private val mapEffects: Flow<MapEffect> = mapActionRepository.getMapEffectsFlow()
-
-    private val _animations = MutableStateFlow(MapEffectsState())
-    val effectsState = _animations.asStateFlow()
+    private val _gameState: MutableStateFlow<GameState> = MutableStateFlow(GameState.Loading)
+    val gameState: StateFlow<GameState> = _gameState.asStateFlow()
     init {
-        mapEffects
-            .onEach { effect ->
-                when (effect) {
-                    is MapEffect.Ping -> {
-                        val currentPings = _animations.value.pings
-                        _animations.value = _animations.value.copy(pings = currentPings + effect)
-
-                        viewModelScope.launch {
-                            delay(3000)
-                            _animations.value = _animations.value.copy(
-                                pings = _animations.value.pings.filterNot { it.x == effect.x && it.y == effect.y }
-                            )
-                        }
-                    }
-                }
+        mapResourceUpdates.onEach { result ->
+            when (result) {
+                is Result.Error -> handleMapUpdateError(result.error)
+                is Result.Success -> handleMapUpdateSuccess(result.data)
             }
-            .launchIn(viewModelScope)
+        }.launchIn(viewModelScope)
+        mapEffects.onEach { effect ->
+            when (effect) {
+                is MapEffect.Ping -> handleNewPing(effect)
+            }
+        }.launchIn(viewModelScope)
     }
 
-    private val initialState: MapOverlayState = MapOverlayState.Loading
-    val overlayState: StateFlow<MapOverlayState> = mapResourceUpdates
-        .scan(initialState) { previousState, payloadResult ->
-            val state = (previousState as? MapOverlayState.UiStateMap) ?: MapOverlayState.UiStateMap()
-            when (payloadResult) {
-                is Result.Error -> {
-                    state.copy(errorMessage = payloadResult.error.toUiText())
-                    // TODO(make errorMessage disappear after n seconds)
-                }
-                is Result.Success -> state.copy(errorMessage = null).update(payloadResult.data)
+    private fun handleNewPing(ping: MapEffect.Ping) {
+        _gameState.updateIfIs<GameState.Game> { state ->
+            state.copy(
+                pings = state.pings + ping
+            )
+        }
+        viewModelScope.launch {
+            delay(3000)
+            _gameState.updateIfIs<GameState.Game> { state ->
+                state.copy(
+                    pings = state.pings.filterNot { it.x == ping.x && it.y == ping.y }
+                )
             }
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = initialState
-        )
+        }
+    }
 
-    private fun MapOverlayState.UiStateMap.update(mapUpdate: MapUpdate): MapOverlayState.UiStateMap =
+    private fun handleMapUpdateError(error: DataError) {
+        _gameState.update {
+            when (it) {
+                is GameState.Game -> it.copy(error = error.toUiText())
+                else -> GameState.Error(error.toUiText())
+            }
+        }
+    }
+
+    private fun handleMapUpdateSuccess(mapUpdate: MapUpdate) {
+        _gameState.update {
+            when (it) {
+                is GameState.Game -> it.update(mapUpdate)
+                else -> GameState.Game(
+                    playerName = username,
+                    admin = admin,
+                ).update(mapUpdate)
+            }
+        }
+    }
+
+    private fun GameState.Game.update(mapUpdate: MapUpdate): GameState.Game =
         when(mapUpdate) {
             is MapUpdate.Connect -> this.copy(logs = logs + "- ${mapUpdate.user} connected")
             is MapUpdate.Initiate -> this.copy(
@@ -92,72 +98,122 @@ class GameViewModel(
             )
             is MapUpdate.Move -> {
                 val updatedCharacters = this.characters.toMutableList().apply {
-                    indexOfFirst { it.id == mapUpdate.id }.takeIf { it != -1 }?.let { index ->
+                    this.indexOfFirst { it.id == mapUpdate.id }.takeIf { it != -1 }?.let { index ->
                         val updatedCharacter = this[index].copy(x = mapUpdate.x, y = mapUpdate.y)
                         set(index, updatedCharacter)
                     }
                 }
 
-                this.copy(characters = updatedCharacters)
+                var newState = this.copy(characters = updatedCharacters)
+                if (mapUpdate.owner == playerName) {
+                    newState = newState.deselectCharacter()
+                }
+                newState
             }
             MapUpdate.NewTurn -> this.copy(logs = logs + "- New Turn")
             is MapUpdate.Next -> {
-                val characterPlaying = characters.find { it.cmId == mapUpdate.id }
-                if (characterPlaying != null) {
+                val playingCharacter = characters.find { it.cmId == mapUpdate.id }
+                if (playingCharacter != null) {
                     this.copy(
-                        logs = logs + "- ${characterPlaying.name} is playing",
-                        isPlayerTurn = characterPlaying.owner == username
+                        logs = logs + "- ${playingCharacter.name} is playing",
+                        isPlayerTurn = playingCharacter.owner == playerName,
+                        playingCharacter = playingCharacter
                     )
                 } else this
             }
         }
 
-    private var _hudState = MutableStateFlow(HUDState())
-    val hudState = _hudState.asStateFlow()
-
-    fun onEndTurn() {
-        mapActionRepository.endTurn()
+    fun onEndTurn() = viewModelScope.launch {
+        mapActionRepository.endTurn((_gameState.value as? GameState.Game)?.playingCharacter?.cmId ?: -1)
+            .onError { handleMapUpdateError(it) }
     }
 
     fun onSprintChecked(checked: Boolean) {
-        _hudState.update { it.copy(sprintEnabled = checked) }
+        _gameState.updateIfIs<GameState.Game> { it.copy(sprintEnabled = checked) }
     }
 
-    fun onMapClick(click: Offset) {
-        when (val state = overlayState.value) {
-            MapOverlayState.Loading -> Logger.e { "click when loading map" }
-            is MapOverlayState.UiStateMap -> {
-                val clickedCharacter = state.characters.firstOrNull { character ->
-                    val center = Offset(character.x.toFloat(), character.y.toFloat())
-                    center.getDistanceTo(click) <= CHARACTER_RADIUS
-                }
-                _hudState.update {
-                    when {
-                        clickedCharacter == null && _hudState.value.selectedCharacter != null ->
-                            it.copy(previewPath = it.previewPath + click)
-                        clickedCharacter != null -> it.copy(selectedCharacter = clickedCharacter, previewPath = listOf(Offset(
-                            clickedCharacter.x.toFloat(), clickedCharacter.y.toFloat()
-                        )))
-                        else -> it.copy(selectedCharacter = null, previewPath = emptyList())
-                    }
-                }
+    fun onMapClick(point: Offset) {
+        _gameState.updateIfIs<GameState.Game> { currentState ->
+            val clickedCharacter = findClickedCharacter(currentState, point)
+
+            when {
+                clickedCharacter != null -> selectCharacter(currentState, clickedCharacter)
+                currentState.selectedCharacter?.owner == currentState.playerName -> currentState.updatePath(point)
+                else -> currentState.deselectCharacter()
             }
         }
     }
 
-    fun onUnselect() {
-        _hudState.update {
-            it.copy(selectedCharacter = null, previewPath = emptyList())
+    private fun findClickedCharacter(state: GameState.Game, point: Offset): Character? {
+        return state.characters.firstOrNull { character ->
+            val center = Offset(character.x.toFloat(), character.y.toFloat())
+            center.getDistanceTo(point) <= CHARACTER_RADIUS
         }
     }
 
-    fun setName(username: String) {
-        this.username = username
+    private fun selectCharacter(state: GameState.Game, character: Character): GameState.Game {
+        if (character.owner != state.playerName) {
+            return state.copy(selectedCharacter = character)
+        } else {
+            val characterPosition = Offset(character.x.toFloat(), character.y.toFloat())
+            return state.copy(
+                selectedCharacter = character,
+                previewPath = PreviewPath(listOf(characterPosition), state.playingCharacter?.speed ?: 0f)
+            )
+        }
     }
-    fun setRoomId(roomId: Int) {
-        this.roomId = roomId
+
+    private fun GameState.Game.updatePath(point: Offset): GameState.Game {
+        val distance = this.previewPath.path.last().getDistanceTo(point)
+        val remainingDistance = this.previewPath.maxDistance - distance / this.mapScale
+        return if (remainingDistance > 0f) {
+            this.copy(
+                playingCharacter = playingCharacter?.copy(speed = remainingDistance),
+                previewPath = PreviewPath(
+                    this.previewPath.path + point,
+                    remainingDistance
+                ),
+            )
+        } else this
     }
-    fun setAdmin(admin: Boolean) {
-        this.admin = admin
+
+    fun onUnselect() {
+        _gameState.updateIfIs<GameState.Game> {
+            it.deselectCharacter()
+        }
     }
+
+    private fun GameState.Game.deselectCharacter(): GameState.Game =
+        this.copy(
+            selectedCharacter = null,
+            previewPath = PreviewPath(emptyList(), playingCharacter?.speed ?: 0f)
+        )
+
+    private fun onValidateMove() {
+        when(val state = _gameState.value) {
+            is GameState.Game -> {
+                if (state.selectedCharacter == null || state.previewPath.path.size <= 1) return
+                viewModelScope.launch {
+                    mapActionRepository.sendMove(MapUpdate.Move(
+                        name = state.selectedCharacter.name,
+                        x = state.previewPath.path.last().x.toInt(),
+                        y = state.previewPath.path.last().y.toInt(),
+                        owner = state.playerName,
+                        id = state.selectedCharacter.characterId,
+                    )).onError { handleMapUpdateError(it) }
+                }
+            }
+            else -> {}
+        }
+    }
+
+    private fun List<Offset>.totalDistance(): Float
+        = this.zipWithNext { current, next -> current.getDistanceTo(next) }.sum()
+
+    fun onDoubleClick(point: Offset) {
+        if ((_gameState.value as? GameState.Game)?.selectedCharacter == null) return
+        _gameState.updateIfIs<GameState.Game> { it.updatePath(point) }
+        onValidateMove()
+    }
+
 }

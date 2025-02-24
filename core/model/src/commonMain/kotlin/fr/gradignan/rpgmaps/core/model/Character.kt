@@ -3,7 +3,7 @@ package fr.gradignan.rpgmaps.core.model
 data class Character(
     val owner: String,
     val name: String,
-    val speed: Int,
+    val speed: Float,
     val id: Int,
     val color: String,
     val cmId: Int,

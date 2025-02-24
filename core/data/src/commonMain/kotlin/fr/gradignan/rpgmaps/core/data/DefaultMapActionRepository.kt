@@ -1,6 +1,7 @@
 package fr.gradignan.rpgmaps.core.data
 
 import fr.gradignan.rpgmaps.core.model.DataError
+import fr.gradignan.rpgmaps.core.model.EmptyResult
 import fr.gradignan.rpgmaps.core.model.map
 import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
@@ -20,19 +21,18 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 
-class ResultMapActionRepository(
+class DefaultMapActionRepository(
     private val webSocketClient: WebSocketClient,
     private val externalScope: CoroutineScope
 ): MapActionRepository {
 
     private val actionsFlow: Flow<Result<MapAction, DataError>> = webSocketClient.getPayloadsFlow()
-        .map(::toMapActionResult)
         .shareIn(externalScope, SharingStarted.WhileSubscribed())
 
     // Using Flow<T>.filterIsInstance here is not possible due to type erasure
     @Suppress("UNCHECKED_CAST")
     private val mapUpdatesFlow = actionsFlow.filterNot(::isMapEffect)
-        .map {  it as Result.Success<MapUpdate> }
+        .map {  it as Result<MapUpdate, DataError> }
     @Suppress("UNCHECKED_CAST")
     private val mapEffectsFlow = actionsFlow.filter(::isMapEffect)
         .map { (it as Result.Success<MapEffect>).data }
@@ -40,15 +40,12 @@ class ResultMapActionRepository(
     private fun isMapEffect(action: Result<MapAction, DataError>): Boolean =
         action is Result.Success && action.data is MapEffect
 
-    private fun toMapActionResult(payload: Result<Payload, DataError>): Result<MapAction, DataError> {
-        return payload.map { it.toMapAction() }
-    }
 
     override fun getMapUpdatesFlow(): Flow<Result<MapUpdate, DataError>> = mapUpdatesFlow
     override fun getMapEffectsFlow(): Flow<MapEffect> = mapEffectsFlow
-    override fun endTurn() {
-        externalScope.launch {
-            webSocketClient.sendMessage(ServerMessage("Next", Payload.ServerNext(0)))
-        }
-    }
+    override suspend fun endTurn(id: Int): EmptyResult<DataError> =
+        webSocketClient.sendMessage(MapUpdate.Next(id))
+
+    override suspend fun sendMove(move: MapUpdate.Move): EmptyResult<DataError> =
+        webSocketClient.sendMessage(move)
 }
