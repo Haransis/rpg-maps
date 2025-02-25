@@ -11,7 +11,9 @@ import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
 import fr.gradignan.rpgmaps.core.model.Result
+import fr.gradignan.rpgmaps.core.model.RoomRepository
 import fr.gradignan.rpgmaps.core.model.onError
+import fr.gradignan.rpgmaps.core.model.onSuccess
 import fr.gradignan.rpgmaps.core.ui.error.toUiText
 import fr.gradignan.rpgmaps.feature.game.model.GameState
 import fr.gradignan.rpgmaps.feature.game.model.PreviewPath
@@ -30,14 +32,15 @@ class GameViewModel(
     private val username: String,
     private val roomId: Int,
     private val isAdmin: Boolean,
-    private val mapActionRepository: MapActionRepository
+    private val mapActionRepository: MapActionRepository,
+    private val roomRepository: RoomRepository
 ): ViewModel() {
-    private val mapResourceUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
+    private val mapResultUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
     private val mapEffects: Flow<MapEffect> = mapActionRepository.getMapEffectsFlow()
     private val _gameState: MutableStateFlow<GameState> = MutableStateFlow(GameState.Loading)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
     init {
-        mapResourceUpdates.onEach { result ->
+        mapResultUpdates.onEach { result ->
             when (result) {
                 is Result.Error -> handleMapUpdateError(result.error)
                 is Result.Success -> handleMapUpdateSuccess(result.data)
@@ -48,6 +51,21 @@ class GameViewModel(
                 is MapEffect.Ping -> handleNewPing(effect)
             }
         }.launchIn(viewModelScope)
+    }
+
+    private fun fetchBoards() = viewModelScope.launch {
+        roomRepository.getBoards()
+            .onSuccess { boards ->
+                _gameState.updateIfIs<GameState.Game> { currentState ->
+                    currentState.copy(boards = boards.map { it.name })
+                }
+            }
+            .onError { error ->
+                _gameState.updateIfIs<GameState.Game> {
+                    Logger.e("Error: $error")
+                    it.copy(error = error.toUiText())
+                }
+            }
     }
 
     private fun handleNewPing(ping: MapEffect.Ping) {
@@ -79,10 +97,13 @@ class GameViewModel(
         _gameState.update {
             when (it) {
                 is GameState.Game -> it.update(mapUpdate)
-                else -> GameState.Game(
-                    playerName = username,
-                    isAdmin = isAdmin,
-                ).update(mapUpdate)
+                else -> {
+                    if (isAdmin) fetchBoards()
+                    GameState.Game(
+                        playerName = username,
+                        isAdmin = isAdmin,
+                    ).update(mapUpdate)
+                }
             }
         }
     }
@@ -137,6 +158,12 @@ class GameViewModel(
                 (_gameState.value as? GameState.Game)?.playingCharacter?.cmId ?: -1
             )
                 .onError { handleMapUpdateError(it) }
+        }
+    }
+
+    fun onBoardSelect(board: String) {
+        _gameState.updateIfIs<GameState.Game> {
+            it.copy(selectedBoard = board)
         }
     }
 
