@@ -15,7 +15,6 @@ import fr.gradignan.rpgmaps.core.network.WebSocketClient
 import fr.gradignan.rpgmaps.core.network.model.toMapAction
 import fr.gradignan.rpgmaps.core.network.model.toServerMessage
 import io.ktor.client.HttpClient
-import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.http.HttpHeaders
 import io.ktor.util.network.UnresolvedAddressException
@@ -31,6 +30,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.concurrent.atomics.AtomicInt
@@ -62,9 +62,11 @@ class KtorWebSocketClient(
             session?.send(Frame.Text("{\"action\": \"Connect\"}"))
             return Result.Success(Unit)
         } catch (e: UnresolvedAddressException) {
+            Logger.e("$e")
             return Result.Error(DataError.Http.NO_INTERNET)
         } catch (e: Exception) {
             coroutineContext.ensureActive() // ensure we respect cancellation.
+            Logger.e("$e")
             return Result.Error(DataError.Http.UNKNOWN)
         }
     }
@@ -75,6 +77,7 @@ class KtorWebSocketClient(
             is Result.Success -> {
                 val ws = session
                 if (ws == null || !ws.isActive) {
+                    Logger.e("session closed unexpectedly")
                     Result.Error(DataError.WebSocket.UNKNOWN)
                 }
                 try {
@@ -82,10 +85,11 @@ class KtorWebSocketClient(
                     Logger.d("send: $jsonString")
                     ws!!.send(Frame.Text(jsonString))
                     Result.Success(Unit)
-                } catch (e: NoTransformationFoundException) {
+                } catch (e: SerializationException) {
                     Result.Error(DataError.WebSocket.SERIALIZATION)
                 } catch (e: Exception) {
                     coroutineContext.ensureActive() // ensure we respect cancellation.
+                    Logger.e("$e")
                     Result.Error(DataError.WebSocket.UNKNOWN)
                 }
             }
@@ -97,6 +101,7 @@ class KtorWebSocketClient(
                 is Result.Success -> {
                     val ws = session
                     if (ws == null || !ws.isActive) {
+                        Logger.e("session closed unexpectedly")
                         emit(Result.Error(DataError.WebSocket.UNKNOWN))
                     } else {
                         try {
@@ -108,6 +113,7 @@ class KtorWebSocketClient(
                             }
                         } catch (e: Exception) {
                             coroutineContext.ensureActive()
+                            Logger.e("$e")
                             emit(Result.Error(DataError.WebSocket.UNKNOWN))
                         }
                     }
@@ -130,9 +136,11 @@ class KtorWebSocketClient(
             val message = encoder.decodeFromString<ServerMessage>(jsonString)
             Logger.d { "Received server message: ${message.action}" }
             Result.Success(message.payload)
-        } catch (e: NoTransformationFoundException) {
+        } catch (e: SerializationException) {
+            Logger.e("$e")
             Result.Error(DataError.WebSocket.SERIALIZATION)
         } catch (e: Exception) {
+            Logger.e("$e")
             Result.Error(DataError.WebSocket.UNKNOWN)
         }
     }

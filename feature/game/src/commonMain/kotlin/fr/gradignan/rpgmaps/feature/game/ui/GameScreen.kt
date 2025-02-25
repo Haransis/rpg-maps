@@ -52,22 +52,26 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.touchlab.kermit.Logger
-import fr.gradignan.rpgmaps.core.common.roundToDecimals
+import fr.gradignan.rpgmaps.core.common.format
 import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.ui.error.UiText
@@ -132,6 +136,7 @@ fun GameScreen(
                 onEndTurn = viewModel::onEndTurn,
                 onSprintChecked = viewModel::onSprintChecked,
                 onMapClick = viewModel::onMapClick,
+                onPointerMove = viewModel::onPointerMove,
                 onDoubleClick = viewModel::onDoubleClick,
                 onUnselect = viewModel::onUnselect,
                 modifier = modifier
@@ -147,7 +152,8 @@ fun GameContent(
     onEndTurn: () -> Unit,
     onSprintChecked: (Boolean) -> Unit,
     onMapClick: (Offset) -> Unit,
-    onDoubleClick: (Offset) -> Unit,
+    onPointerMove: (Offset) -> Unit,
+    onDoubleClick: () -> Unit,
     onUnselect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -155,21 +161,22 @@ fun GameContent(
         MapSideBar(
             isPlayerTurn = gameState.isPlayerTurn,
             logs = gameState.logs,
-            isSprintEnabled = gameState.sprintEnabled,
+            isSprintEnabled = gameState.sprintChecked,
             onBack = onBack,
             onEndTurn = onEndTurn,
             onSprintChecked = onSprintChecked,
             modifier = Modifier.fillMaxWidth(0.2f)
         )
         MapContainer(
-            mapScale = gameState.mapScale,
             previewPath = gameState.previewPath,
-            playingCharacter = gameState.playingCharacter,
+            hoveredCharacterId = gameState.hoveredCharacterId,
+            isPlayerTurn = gameState.isPlayerTurn,
             selectedCharacter = gameState.selectedCharacter,
             pings = gameState.pings,
             characters = gameState.characters,
             errorMessage = gameState.error,
             onMapClick = onMapClick,
+            onPointerMove = onPointerMove,
             onDoubleClick = onDoubleClick,
             onUnselect = onUnselect
         )
@@ -178,15 +185,16 @@ fun GameContent(
 
 @Composable
 private fun MapContainer(
-    mapScale: Float,
     previewPath: PreviewPath,
-    playingCharacter: Character?,
+    hoveredCharacterId: Int?,
+    isPlayerTurn: Boolean,
     selectedCharacter: Character?,
     pings: List<MapEffect.Ping>,
     characters: List<Character>,
     errorMessage: UiText?,
     onMapClick: (Offset) -> Unit,
-    onDoubleClick: (Offset) -> Unit,
+    onPointerMove: (Offset) -> Unit,
+    onDoubleClick: () -> Unit,
     onUnselect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -200,14 +208,15 @@ private fun MapContainer(
         contentAlignment = Alignment.Center
     ) {
         MapContent(
-            mapScale = mapScale,
             previewPath = previewPath,
             mapTransformState = mapTransformState,
             characters = characters,
-            playingCharacter = playingCharacter,
+            hoveredCharacterId = hoveredCharacterId,
+            isPlayerTurn = isPlayerTurn,
             selectedCharacter = selectedCharacter,
             pings = pings,
             onMapClick = onMapClick,
+            onPointerMove = onPointerMove,
             onDoubleClick = onDoubleClick,
             onUnselect = onUnselect,
         )
@@ -281,21 +290,21 @@ data class MapTransformer(
         (y / size.height) * imageHeight
     )
 
-    fun DrawScope.toAbsoluteOffset(offset: Offset) = toAbsoluteOffset(offset.x, offset.y, size)
     fun PointerInputScope.toAbsoluteOffset(offset: Offset) = toAbsoluteOffset(offset.x, offset.y, size.toSize())
 }
 
 @Composable
 private fun MapContent(
-    mapScale: Float,
     previewPath: PreviewPath,
     mapTransformState: MapTransformState,
     characters: List<Character>,
-    playingCharacter: Character?,
+    hoveredCharacterId: Int?,
+    isPlayerTurn: Boolean,
     selectedCharacter: Character?,
     pings: List<MapEffect.Ping>,
     onMapClick: (Offset) -> Unit,
-    onDoubleClick: (Offset) -> Unit,
+    onPointerMove: (Offset) -> Unit,
+    onDoubleClick: () -> Unit,
     onUnselect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -324,16 +333,18 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize()
         )
         CharactersOverlay(
-            mapScale = mapScale,
             previewPath = previewPath,
             characters = characters,
             transformer = transformer,
+            hoveredCharacterId = hoveredCharacterId,
             selectedCharacter = selectedCharacter,
-            playingCharacter = playingCharacter,
+            isPlayerTurn = isPlayerTurn,
             onMapClick = onMapClick,
             onDoubleClick = onDoubleClick,
+            onPointerMove = onPointerMove,
             onUnselect = onUnselect,
             modifier = Modifier.matchParentSize()
+                .pointerHoverIcon(if (hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
         )
         AnimationsOverlay(
             pings = pings,
@@ -345,18 +356,18 @@ private fun MapContent(
 
 @Composable
 private fun CharactersOverlay(
-    mapScale: Float,
     previewPath: PreviewPath,
     characters: List<Character>,
     transformer: MapTransformer,
+    hoveredCharacterId: Int?,
     selectedCharacter: Character?,
-    playingCharacter: Character?,
+    isPlayerTurn: Boolean,
     onMapClick: (Offset) -> Unit,
-    onDoubleClick: (Offset) -> Unit,
+    onDoubleClick: () -> Unit,
+    onPointerMove: (Offset) -> Unit,
     onUnselect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var circlePosition by remember { mutableStateOf(Offset.Zero) }
     val textMeasurer = rememberTextMeasurer()
     Canvas(
         modifier = modifier
@@ -364,7 +375,7 @@ private fun CharactersOverlay(
                 with(transformer) {
                     detectTapGestures (
                         onDoubleTap = {
-                            onDoubleClick(toAbsoluteOffset(it))
+                            onDoubleClick()
                         },
                         onTap = {
                             onMapClick(toAbsoluteOffset(it))
@@ -373,24 +384,29 @@ private fun CharactersOverlay(
                 }
             }
             .pointerInput(Unit) {
-                handleMapGestures(
-                    onUnselect = onUnselect
-                ) { newPosition ->
-                    circlePosition = newPosition
+                with(transformer) {
+                    handleMapGestures(
+                        onUnselect = onUnselect,
+                        onPointerMove = { newPosition -> onPointerMove(toAbsoluteOffset(newPosition))}
+                    )
                 }
             }
     ) {
         selectedCharacter?.let {
-            if (playingCharacter == null) return@let
+            if (!isPlayerTurn) return@let
             drawMovementIndicator(
-                mapScale = mapScale,
                 previewPath = previewPath,
-                circlePosition = circlePosition,
                 transformer = transformer,
                 textMeasurer = textMeasurer
             )
         }
-        drawCharacters(characters, selectedCharacter, transformer)
+        drawCharacters(
+            characters = characters,
+            selectedCharacter = selectedCharacter,
+            hoveredCharacterId = hoveredCharacterId,
+            mapTransformer = transformer,
+            textMeasurer = textMeasurer
+        )
     }
 }
 
@@ -434,46 +450,30 @@ fun DrawScope.drawReachableMovement(start: Offset, end: Offset, color: Color, st
 }
 
 fun DrawScope.drawMovementIndicator(
-    mapScale: Float,
     previewPath: PreviewPath,
-    circlePosition: Offset,
     textMeasurer: TextMeasurer,
     transformer: MapTransformer
 ) = with(transformer) {
-    if (previewPath.path.isEmpty()) return@with
-    var distance = 0f
-
-    previewPath.path.windowed(2).forEach { (startRaw, endRaw) ->
+    if (previewPath.reachable.size <= 1) return@with
+    previewPath.reachable.windowed(2).forEach { (startRaw, endRaw) ->
         val start = toMapOffset(startRaw)
         val end = toMapOffset(endRaw)
         drawReachableMovement(start, end, Color.Green)
-
-        val segmentDistance = startRaw.getDistanceTo(endRaw) / mapScale
-        distance += segmentDistance
+    }
+    previewPath.unreachableStop?.let {
+        val start = toMapOffset(previewPath.reachable.last())
+        val end = toMapOffset(it)
+        drawUnReachableMovement(start, end)
     }
 
-    val lastPoint = toMapOffset(previewPath.path.last())
-    val targetPoint = Offset(circlePosition.x, circlePosition.y)
-    val remainingDistance = previewPath.path.last().getDistanceTo(toAbsoluteOffset(targetPoint)) / mapScale
-    val midPoint = Offset(
-        (lastPoint.x + targetPoint.x) / 2.coerceAtLeast(0),
-        (lastPoint.y + targetPoint.y) / 2.coerceAtLeast(0)
+    val style = TextStyle(
+        fontSize = 20.sp,
+        shadow = Shadow(color = Color.White, blurRadius = 1f)
     )
-
-    if (remainingDistance < previewPath.maxDistance) {
-        Logger.d { "green: $previewPath" }
-        drawReachableMovement(lastPoint, targetPoint, Color.Green)
-    } else {
-        Logger.d { "gray: $previewPath" }
-        val maxReachable = computeMaxReachableOffset(lastPoint, targetPoint, previewPath.maxDistance, remainingDistance)
-        drawReachableMovement(lastPoint, maxReachable, Color.Green)
-        drawUnReachableMovement(maxReachable, targetPoint)
-    }
-
+    val textLayout = textMeasurer.measure("${previewPath.totalDistance.format(1)}m", style)
     drawText(
-        textMeasurer = textMeasurer,
-        text = "${(distance + remainingDistance).roundToDecimals(1)}m",
-        topLeft = midPoint
+        textLayoutResult = textLayout,
+        topLeft = toMapOffset(previewPath.unreachableStop ?: previewPath.reachable.last())+Offset(10f, 0f),
     )
 }
 
@@ -522,20 +522,20 @@ private fun AnimationsOverlay(
 
 private suspend fun PointerInputScope.handleMapGestures(
     onUnselect: () -> Unit,
-    updatePointerPosition: (Offset) -> Unit
+    onPointerMove: (Offset) -> Unit
 ) = awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent()
-                event.changes.firstOrNull()?.let { pointerMovement ->
-                    updatePointerPosition(pointerMovement.position)
-                }
-                if (event.type == PointerEventType.Press &&
-                    event.buttons.isSecondaryPressed) {
-                    event.changes.forEach { e -> e.consume() }
-                    onUnselect()
-                }
-            }
+    while (true) {
+        val event = awaitPointerEvent()
+        event.changes.firstOrNull()?.let { pointerMovement ->
+            onPointerMove(pointerMovement.position)
         }
+        if (event.type == PointerEventType.Press &&
+            event.buttons.isSecondaryPressed) {
+            event.changes.forEach { e -> e.consume() }
+            onUnselect()
+        }
+    }
+}
 
 
 private fun Modifier.detectDragMap(onDrag: (Offset) -> Unit): Modifier =
@@ -678,7 +678,9 @@ fun Offset.getDistanceTo(target: Offset): Float {
 private fun DrawScope.drawCharacters(
     characters: List<Character>,
     selectedCharacter: Character?,
-    mapTransformer: MapTransformer
+    hoveredCharacterId: Int?,
+    mapTransformer: MapTransformer,
+    textMeasurer: TextMeasurer
 ) {
     with(mapTransformer) {
         characters.forEach { character ->
@@ -695,6 +697,20 @@ private fun DrawScope.drawCharacters(
                 center = center,
                 style = Stroke(width = 1f)
             )
+            if (hoveredCharacterId == character.cmId) {
+                val style = TextStyle(
+                    fontSize = 20.sp,
+                    shadow = Shadow(color = Color.White, blurRadius = 1f)
+                )
+                val outlineTextResult = textMeasurer.measure(character.name, style)
+                drawText(
+                    textLayoutResult = outlineTextResult,
+                    topLeft = Offset(
+                        x = center.x + radius*1.1f - outlineTextResult.size.width / 2,
+                        y = center.y + radius*1.1f - outlineTextResult.size.height / 2,
+                    )
+                )
+            }
         }
     }
 }

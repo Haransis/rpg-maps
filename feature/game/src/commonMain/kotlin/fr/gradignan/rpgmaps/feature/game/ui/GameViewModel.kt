@@ -3,6 +3,7 @@ package fr.gradignan.rpgmaps.feature.game.ui
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.common.updateIfIs
 import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.DataError
@@ -106,6 +107,9 @@ class GameViewModel(
 
                 var newState = this.copy(characters = updatedCharacters)
                 if (mapUpdate.owner == playerName) {
+                    newState = newState.copy(
+                        playingCharacter = playingCharacter?.copy(speed = playingCharacter.speed - previewPath.totalDistance)
+                    )
                     newState = newState.deselectCharacter()
                 }
                 newState
@@ -123,29 +127,43 @@ class GameViewModel(
             }
         }
 
-    fun onEndTurn() = viewModelScope.launch {
-        mapActionRepository.endTurn((_gameState.value as? GameState.Game)?.playingCharacter?.cmId ?: -1)
-            .onError { handleMapUpdateError(it) }
+    fun onEndTurn() {
+        _gameState.updateIfIs<GameState.Game> { it.deselectCharacter() }
+        viewModelScope.launch {
+            mapActionRepository.endTurn(
+                (_gameState.value as? GameState.Game)?.playingCharacter?.cmId ?: -1
+            )
+                .onError { handleMapUpdateError(it) }
+        }
     }
 
     fun onSprintChecked(checked: Boolean) {
-        _gameState.updateIfIs<GameState.Game> { it.copy(sprintEnabled = checked) }
+        _gameState.updateIfIs<GameState.Game> { state ->
+            if (state.playingCharacter == null) return@updateIfIs state
+            val baseSpeed = state.characters.firstOrNull { it.cmId == state.playingCharacter.cmId }?.speed ?: 0f
+            val updatedSpeed = (if (checked) baseSpeed + state.playingCharacter.speed
+                else state.playingCharacter.speed - baseSpeed)
+            state.copy(
+                playingCharacter = state.playingCharacter.copy(speed = updatedSpeed),
+                sprintChecked = checked
+            ).deselectCharacter()
+        }
     }
 
     fun onMapClick(point: Offset) {
         _gameState.updateIfIs<GameState.Game> { currentState ->
-            val clickedCharacter = findClickedCharacter(currentState, point)
+            val clickedCharacter = currentState.findClickedCharacter(point)
 
             when {
                 clickedCharacter != null -> selectCharacter(currentState, clickedCharacter)
-                currentState.selectedCharacter?.owner == currentState.playerName -> currentState.updatePath(point)
+                currentState.selectedCharacter?.owner == currentState.playerName -> currentState.appendPath(point)
                 else -> currentState.deselectCharacter()
             }
         }
     }
 
-    private fun findClickedCharacter(state: GameState.Game, point: Offset): Character? {
-        return state.characters.firstOrNull { character ->
+    private fun GameState.Game.findClickedCharacter(point: Offset): Character? {
+        return this.characters.firstOrNull { character ->
             val center = Offset(character.x.toFloat(), character.y.toFloat())
             center.getDistanceTo(point) <= CHARACTER_RADIUS
         }
@@ -158,24 +176,59 @@ class GameViewModel(
             val characterPosition = Offset(character.x.toFloat(), character.y.toFloat())
             return state.copy(
                 selectedCharacter = character,
-                previewPath = PreviewPath(listOf(characterPosition), state.playingCharacter?.speed ?: 0f)
+                previewPath = PreviewPath(
+                    reachable = listOf(characterPosition, characterPosition),
+                    unreachableStop = null,
+                    totalDistance = 0f
+                )
             )
         }
     }
 
-    private fun GameState.Game.updatePath(point: Offset): GameState.Game {
-        val distance = this.previewPath.path.last().getDistanceTo(point)
-        val remainingDistance = this.previewPath.maxDistance - distance / this.mapScale
-        return if (remainingDistance > 0f) {
-            this.copy(
-                playingCharacter = playingCharacter?.copy(speed = remainingDistance),
-                previewPath = PreviewPath(
-                    this.previewPath.path + point,
-                    remainingDistance
-                ),
-            )
-        } else this
+    private fun GameState.Game.appendPath(end: Offset): GameState.Game {
+        val reachablePath = this.previewPath.reachable
+        if (reachablePath.isEmpty()) return this
+
+        val start = reachablePath.first()
+        val distance = start.getDistanceTo(end) / this.mapScale
+        val speed = this.playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
+
+        return if (distance > speed) this else copy(
+            previewPath = previewPath.extendPath(end, distance)
+        )
     }
+
+    private fun GameState.Game.updatePath(end: Offset): GameState.Game {
+        val reachablePath = this.previewPath.reachable
+        if (reachablePath.size < 2 || !isPlayerTurn) return this
+
+        val start = reachablePath[reachablePath.lastIndex - 1]
+        val previousDistance = reachablePath.dropLast(1).totalDistance() / mapScale
+        val newSegmentDistance = start.getDistanceTo(end) / mapScale
+        val speed = this.playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
+        val totalDistance = previousDistance + newSegmentDistance
+
+        return copy(
+            previewPath = if (totalDistance > speed) {
+                val maxReachable = start.interpolate(end, (speed - previousDistance) / newSegmentDistance)
+                PreviewPath(reachable = reachablePath.dropLast(1) + maxReachable, unreachableStop = end, totalDistance = totalDistance)
+            } else {
+                PreviewPath(reachable = reachablePath.dropLast(1) + end, unreachableStop = null, totalDistance = totalDistance)
+            }
+        )
+    }
+
+
+    private fun PreviewPath.extendPath(end: Offset, distance: Float) = PreviewPath(
+        reachable = reachable + end,
+        unreachableStop = null,
+        totalDistance = distance
+    )
+
+    private fun Offset.interpolate(target: Offset, factor: Float) = Offset(
+        x + (target.x - x) * factor,
+        y + (target.y - y) * factor
+    )
 
     fun onUnselect() {
         _gameState.updateIfIs<GameState.Game> {
@@ -186,34 +239,40 @@ class GameViewModel(
     private fun GameState.Game.deselectCharacter(): GameState.Game =
         this.copy(
             selectedCharacter = null,
-            previewPath = PreviewPath(emptyList(), playingCharacter?.speed ?: 0f)
+            previewPath = PreviewPath()
         )
 
-    private fun onValidateMove() {
+    fun onDoubleClick() {
         when(val state = _gameState.value) {
             is GameState.Game -> {
-                if (state.selectedCharacter == null || state.previewPath.path.size <= 1) return
+                if (
+                    state.selectedCharacter == null
+                    || state.previewPath.reachable.isEmpty()
+                    || state.previewPath.unreachableStop != null
+                ) return
                 viewModelScope.launch {
                     mapActionRepository.sendMove(MapUpdate.Move(
                         name = state.selectedCharacter.name,
-                        x = state.previewPath.path.last().x.toInt(),
-                        y = state.previewPath.path.last().y.toInt(),
+                        x = state.previewPath.reachable.last().x.toInt(),
+                        y = state.previewPath.reachable.last().y.toInt(),
                         owner = state.playerName,
-                        id = state.selectedCharacter.characterId,
+                        id = state.selectedCharacter.cmId,
                     )).onError { handleMapUpdateError(it) }
                 }
             }
-            else -> {}
+            else -> Logger.e("onDoubleClick called on wrong state")
         }
     }
 
     private fun List<Offset>.totalDistance(): Float
         = this.zipWithNext { current, next -> current.getDistanceTo(next) }.sum()
 
-    fun onDoubleClick(point: Offset) {
-        if ((_gameState.value as? GameState.Game)?.selectedCharacter == null) return
-        _gameState.updateIfIs<GameState.Game> { it.updatePath(point) }
-        onValidateMove()
+    fun onPointerMove(offset: Offset) {
+        _gameState.updateIfIs<GameState.Game> {
+            it.copy(
+                hoveredCharacterId = it.findClickedCharacter(offset)?.cmId
+            ).updatePath(offset)
+        }
     }
 
 }

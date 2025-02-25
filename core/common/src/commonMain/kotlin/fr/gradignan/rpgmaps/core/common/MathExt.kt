@@ -1,10 +1,15 @@
 package fr.gradignan.rpgmaps.core.common
 
+import co.touchlab.kermit.Logger
+import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.round
 import kotlin.math.roundToInt
 
-fun Float.roundToDecimals(decimals: Int): Float {
-    var dotAt = 1
-    repeat(decimals) { dotAt *= 10 }
-    val roundedValue = (this * dotAt).roundToInt()
-    return (roundedValue / dotAt) + (roundedValue % dotAt).toFloat() / dotAt
+fun Float.format(n: Int): String {
+    val unit = this.roundToInt()
+    val dec = abs(this - unit)
+    val decimals = dec.toString().substring(2,min(n+2, dec.toString().length))
+    return "$unit.$decimals"
 }

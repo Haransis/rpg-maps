@@ -31,7 +31,7 @@ data class ServerMessage(
                 "LoadMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerLoadMap.serializer(), jsonObject)
                 "Initiate"   -> decoder.json.decodeFromJsonElement(Payload.ServerInitiate.serializer(), jsonObject)
                 "Move"   -> decoder.json.decodeFromJsonElement(Payload.ServerMove.serializer(), jsonObject)
-                "New Turn"   -> decoder.json.decodeFromJsonElement(Payload.ServerNewTurn.serializer(), jsonObject)
+                "NewTurn"   -> decoder.json.decodeFromJsonElement(Payload.ServerNewTurn.serializer(), jsonObject)
                 "Next"   -> decoder.json.decodeFromJsonElement(Payload.ServerNext.serializer(), jsonObject)
                 "Ping"   -> decoder.json.decodeFromJsonElement(Payload.ServerPing.serializer(), jsonObject)
                 else    -> throw SerializationException("Unknown action: $action")

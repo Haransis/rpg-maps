@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 
 class DefaultMapActionRepository(
     private val webSocketClient: WebSocketClient,
-    private val externalScope: CoroutineScope
+    externalScope: CoroutineScope
 ): MapActionRepository {
 
     private val actionsFlow: Flow<Result<MapAction, DataError>> = webSocketClient.getPayloadsFlow()

@@ -13,12 +13,13 @@ sealed class GameState {
         val playerName: String = "",
         val characters: List<Character> = emptyList(),
         val selectedCharacter: Character? = null,
+        val hoveredCharacterId: Int? = null,
         val playingCharacter: Character? = null,
         val pings: List<MapEffect.Ping> = emptyList(),
         val error: UiText? = null,
         val isPlayerTurn: Boolean = false,
         val admin: Boolean = false,
-        val sprintEnabled: Boolean = false,
+        val sprintChecked: Boolean = false,
         val logs: List<String> = emptyList(),
         val previewPath: PreviewPath = PreviewPath(),
         val map: String? = null
@@ -26,6 +27,7 @@ sealed class GameState {
 }
 
 data class PreviewPath(
-    val path: List<Offset> = emptyList(),
-    val maxDistance: Float = 0f
+    val reachable: List<Offset> = emptyList(),
+    val unreachableStop: Offset? = null,
+    val totalDistance: Float = 0f
 )
