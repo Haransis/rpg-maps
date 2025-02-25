@@ -24,11 +24,12 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.Float.Companion.POSITIVE_INFINITY
 
 class GameViewModel(
     private val username: String,
     private val roomId: Int,
-    private val admin: Boolean,
+    private val isAdmin: Boolean,
     private val mapActionRepository: MapActionRepository
 ): ViewModel() {
     private val mapResourceUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
@@ -80,7 +81,7 @@ class GameViewModel(
                 is GameState.Game -> it.update(mapUpdate)
                 else -> GameState.Game(
                     playerName = username,
-                    admin = admin,
+                    isAdmin = isAdmin,
                 ).update(mapUpdate)
             }
         }
@@ -121,7 +122,9 @@ class GameViewModel(
                     this.copy(
                         logs = logs + "- ${playingCharacter.name} is playing",
                         isPlayerTurn = playingCharacter.owner == playerName,
-                        playingCharacter = playingCharacter
+                        playingCharacter = playingCharacter,
+                        isGmChecked = false,
+                        isSprintChecked = false,
                     )
                 } else this
             }
@@ -137,7 +140,7 @@ class GameViewModel(
         }
     }
 
-    fun onSprintChecked(checked: Boolean) {
+    fun onSprintCheck(checked: Boolean) {
         _gameState.updateIfIs<GameState.Game> { state ->
             if (state.playingCharacter == null) return@updateIfIs state
             val baseSpeed = state.characters.firstOrNull { it.cmId == state.playingCharacter.cmId }?.speed ?: 0f
@@ -145,7 +148,7 @@ class GameViewModel(
                 else state.playingCharacter.speed - baseSpeed)
             state.copy(
                 playingCharacter = state.playingCharacter.copy(speed = updatedSpeed),
-                sprintChecked = checked
+                isSprintChecked = checked
             ).deselectCharacter()
         }
     }
@@ -156,7 +159,7 @@ class GameViewModel(
 
             when {
                 clickedCharacter != null -> selectCharacter(currentState, clickedCharacter)
-                currentState.selectedCharacter?.owner == currentState.playerName -> currentState.appendPath(point)
+                currentState.selectedCharacter?.owner == currentState.playerName || !currentState.isGmChecked -> currentState.appendPath(point)
                 else -> currentState.deselectCharacter()
             }
         }
@@ -170,7 +173,7 @@ class GameViewModel(
     }
 
     private fun selectCharacter(state: GameState.Game, character: Character): GameState.Game {
-        if (character.owner != state.playerName) {
+        if (character.owner != state.playerName && !isAdmin) {
             return state.copy(selectedCharacter = character)
         } else {
             val characterPosition = Offset(character.x.toFloat(), character.y.toFloat())
@@ -186,13 +189,10 @@ class GameViewModel(
     }
 
     private fun GameState.Game.appendPath(end: Offset): GameState.Game {
-        val reachablePath = this.previewPath.reachable
-        if (reachablePath.isEmpty()) return this
-
-        val start = reachablePath.first()
-        val distance = start.getDistanceTo(end) / this.mapScale
-        val speed = this.playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
-
+        if (previewPath.reachable.isEmpty()) return this
+        val start = previewPath.reachable.first()
+        val distance = start.getDistanceTo(end) / mapScale
+        val speed = playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
         return if (distance > speed) this else copy(
             previewPath = previewPath.extendPath(end, distance)
         )
@@ -205,7 +205,7 @@ class GameViewModel(
         val start = reachablePath[reachablePath.lastIndex - 1]
         val previousDistance = reachablePath.dropLast(1).totalDistance() / mapScale
         val newSegmentDistance = start.getDistanceTo(end) / mapScale
-        val speed = this.playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
+        val speed = if (isGmChecked) POSITIVE_INFINITY else this.playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
         val totalDistance = previousDistance + newSegmentDistance
 
         return copy(
@@ -272,6 +272,12 @@ class GameViewModel(
             it.copy(
                 hoveredCharacterId = it.findClickedCharacter(offset)?.cmId
             ).updatePath(offset)
+        }
+    }
+
+    fun onGmCheck(checked: Boolean) {
+        _gameState.updateIfIs<GameState.Game> {
+            it.copy(isGmChecked = checked)
         }
     }
 

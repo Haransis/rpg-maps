@@ -18,8 +18,9 @@ sealed class GameState {
         val pings: List<MapEffect.Ping> = emptyList(),
         val error: UiText? = null,
         val isPlayerTurn: Boolean = false,
-        val admin: Boolean = false,
-        val sprintChecked: Boolean = false,
+        val isAdmin: Boolean = false,
+        val isSprintChecked: Boolean = false,
+        val isGmChecked: Boolean = false,
         val logs: List<String> = emptyList(),
         val previewPath: PreviewPath = PreviewPath(),
         val map: String? = null

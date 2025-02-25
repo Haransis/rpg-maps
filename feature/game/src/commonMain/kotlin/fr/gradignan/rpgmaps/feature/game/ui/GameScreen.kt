@@ -134,7 +134,8 @@ fun GameScreen(
                 gameState = state,
                 onBack = onBack,
                 onEndTurn = viewModel::onEndTurn,
-                onSprintChecked = viewModel::onSprintChecked,
+                onGmCheck = viewModel::onGmCheck,
+                onSprintCheck = viewModel::onSprintCheck,
                 onMapClick = viewModel::onMapClick,
                 onPointerMove = viewModel::onPointerMove,
                 onDoubleClick = viewModel::onDoubleClick,
@@ -150,7 +151,8 @@ fun GameContent(
     gameState: GameState.Game,
     onBack: () -> Unit,
     onEndTurn: () -> Unit,
-    onSprintChecked: (Boolean) -> Unit,
+    onGmCheck: (Boolean) -> Unit,
+    onSprintCheck: (Boolean) -> Unit,
     onMapClick: (Offset) -> Unit,
     onPointerMove: (Offset) -> Unit,
     onDoubleClick: () -> Unit,
@@ -160,11 +162,14 @@ fun GameContent(
     Row(modifier.fillMaxSize()) {
         MapSideBar(
             isPlayerTurn = gameState.isPlayerTurn,
+            isAdmin = gameState.isAdmin,
             logs = gameState.logs,
-            isSprintEnabled = gameState.sprintChecked,
+            isGmChecked = gameState.isGmChecked,
+            isSprintChecked = gameState.isSprintChecked,
             onBack = onBack,
             onEndTurn = onEndTurn,
-            onSprintChecked = onSprintChecked,
+            onSprintCheck = onSprintCheck,
+            onGmCheck = onGmCheck,
             modifier = Modifier.fillMaxWidth(0.2f)
         )
         MapContainer(
@@ -477,17 +482,6 @@ fun DrawScope.drawMovementIndicator(
     )
 }
 
-private fun computeMaxReachableOffset(start: Offset, end: Offset, remainingSpeed: Float, segmentDistance: Float): Offset {
-    if (segmentDistance <= 0f) return start
-
-    val factor = remainingSpeed / segmentDistance
-    return Offset(
-        start.x + (end.x - start.x) * factor,
-        start.y + (end.y - start.y) * factor
-    )
-}
-
-
 fun DrawScope.drawUnReachableMovement(start: Offset, end: Offset) {
     drawLine(
         color = Color.Gray,
@@ -602,11 +596,14 @@ data class MapTransformState(
 @Composable
 private fun MapSideBar(
     isPlayerTurn: Boolean,
+    isAdmin: Boolean,
     logs: List<String>,
-    isSprintEnabled: Boolean,
+    isGmChecked: Boolean,
+    isSprintChecked: Boolean,
     onBack: () -> Unit,
     onEndTurn: () -> Unit,
-    onSprintChecked: (Boolean) -> Unit,
+    onGmCheck: (Boolean) -> Unit,
+    onSprintCheck: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -622,19 +619,17 @@ private fun MapSideBar(
         ) {
             Text("End turn")
         }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Sprint",
-                color = MaterialTheme.colorScheme.primary.copy(
-                    if (isPlayerTurn) 1f else 0.4f
-                )
-            )
-            Checkbox(
-                checked = isSprintEnabled,
-                onCheckedChange = onSprintChecked,
-                enabled = isPlayerTurn
+        CheckBoxText(
+            text = "Sprint",
+            enabled = isPlayerTurn,
+            checked = isSprintChecked,
+            onCheck = onSprintCheck
+        )
+        if (isAdmin) {
+            CheckBoxText(
+                text = "Gm mode",
+                checked = isGmChecked,
+                onCheck = onGmCheck
             )
         }
         Text("History:")
@@ -647,6 +642,32 @@ private fun MapSideBar(
                 Text(logs[index])
             }
         }
+    }
+}
+
+@Composable
+private fun CheckBoxText(
+    text: String,
+    checked: Boolean,
+    onCheck: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.primary.copy(
+                if (enabled) 1f else 0.4f
+            )
+        )
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheck,
+            enabled = enabled
+        )
     }
 }
 
