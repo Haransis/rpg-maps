@@ -156,8 +156,7 @@ class GameViewModel(
         viewModelScope.launch {
             mapActionRepository.endTurn(
                 (_gameState.value as? GameState.Game)?.playingCharacter?.cmId ?: -1
-            )
-                .onError { handleMapUpdateError(it) }
+            ).onError { handleMapUpdateError(it) }
         }
     }
 
@@ -306,6 +305,32 @@ class GameViewModel(
         _gameState.updateIfIs<GameState.Game> {
             it.copy(isGmChecked = checked)
         }
+    }
+
+    fun onBoardSubmit() {
+        TODO("not implemented")
+    }
+
+    fun onCharacterSelect(name: String) {
+        _gameState.updateIfIs<GameState.Game> {
+            it.copy(selectedChar = name)
+        }
+    }
+
+    fun onCharacterSubmit() {
+        TODO("not implemented")
+    }
+
+    fun onStartGame() {
+        TODO("not implemented")
+    }
+
+    fun onDeleteChar(index: Int) {
+        TODO("Not yet implemented")
+    }
+
+    fun onChangeInitiative(move: ItemMove) {
+        TODO("Not yet implemented")
     }
 
 }

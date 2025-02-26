@@ -13,6 +13,7 @@ kstore = "0.9.1"
 ktor = "3.0.3"
 logback = "1.5.16"
 multiplatform-settings = "1.3.0"
+reorderable = "2.4.3"
 slf4j = "2.0.3"
 
 [libraries]
@@ -41,6 +42,7 @@ kstore = { module = "io.github.xxfast:kstore", version.ref = "kstore" }
 kstore-file = { module = "io.github.xxfast:kstore-file", version.ref = "kstore" }
 kstore-storage = { module = "io.github.xxfast:kstore-storage", version.ref = "kstore" }
 multiplatform-settings = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "multiplatform-settings" }
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 
 [plugins]
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }

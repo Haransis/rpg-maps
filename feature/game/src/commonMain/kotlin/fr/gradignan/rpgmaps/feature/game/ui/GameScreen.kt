@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,12 +31,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -90,6 +96,8 @@ import org.jetbrains.compose.resources.imageResource
 import org.koin.compose.viewmodel.koinViewModel
 import rpg_maps.feature.game.generated.resources.Res
 import rpg_maps.feature.game.generated.resources.defile1
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -138,9 +146,15 @@ fun GameScreen(
             }
         }
         is GameState.Game -> {
-            GameContent (
+            GameContent(
                 gameState = state,
                 onBack = onBack,
+                onBoardSubmit = viewModel::onBoardSubmit,
+                onCharacterSelect = viewModel::onCharacterSelect,
+                onCharacterSubmit = viewModel::onCharacterSubmit,
+                onDeleteChar = viewModel::onDeleteChar,
+                onChangeInitiative = viewModel::onChangeInitiative,
+                onStartGame = viewModel::onStartGame,
                 onBoardSelect = viewModel::onBoardSelect,
                 onEndTurn = viewModel::onEndTurn,
                 onGmCheck = viewModel::onGmCheck,
@@ -149,7 +163,7 @@ fun GameScreen(
                 onPointerMove = viewModel::onPointerMove,
                 onDoubleClick = viewModel::onDoubleClick,
                 onUnselect = viewModel::onUnselect,
-                modifier = modifier
+                modifier = modifier,
             )
         }
     }
@@ -158,6 +172,12 @@ fun GameScreen(
 @Composable
 fun GameContent(
     gameState: GameState.Game,
+    onBoardSubmit: () -> Unit,
+    onCharacterSelect: (String) -> Unit,
+    onCharacterSubmit: () -> Unit,
+    onDeleteChar: (Int) -> Unit,
+    onChangeInitiative: (ItemMove) -> Unit,
+    onStartGame: () -> Unit,
     onBack: () -> Unit,
     onBoardSelect: (String) -> Unit,
     onEndTurn: () -> Unit,
@@ -195,12 +215,20 @@ fun GameContent(
         )
         if (gameState.isAdmin) {
             GmToolBox(
+                isGmChecked = gameState.isGmChecked,
                 selectedBoard = gameState.selectedBoard,
                 boards = gameState.boards,
-                isGmChecked = gameState.isGmChecked,
+                selectedCharacter = gameState.selectedChar,
+                characters = gameState.characters,
+                onBoardSubmit = onBoardSubmit,
+                onCharacterSelect = onCharacterSelect,
+                onCharacterSubmit = onCharacterSubmit,
+                onChangeInitiative = onChangeInitiative,
+                onDelete = onDeleteChar,
+                onStartGame = onStartGame,
                 onBoardSelect = onBoardSelect,
                 onGmCheck = onGmCheck,
-                modifier = Modifier.fillMaxWidth(0.2f)
+                modifier = Modifier.fillMaxWidth(0.2f),
             )
         }
     }
@@ -208,55 +236,132 @@ fun GameContent(
 
 @Composable
 fun GmToolBox(
-    selectedBoard: String,
+    selectedBoard: String?,
     boards: List<String>,
+    selectedCharacter: String?,
+    characters: List<Character>,
     isGmChecked: Boolean,
     onBoardSelect: (String) -> Unit,
+    onBoardSubmit: () -> Unit,
+    onChangeInitiative: (ItemMove) -> Unit,
+    onCharacterSelect: (String) -> Unit,
+    onCharacterSubmit: () -> Unit,
+    onDelete: (Int) -> Unit,
+    onStartGame: () -> Unit,
     onGmCheck: (Boolean) -> Unit,
-    modifier: Modifier
+    modifier: Modifier = Modifier
 ) {
-    Column (modifier.fillMaxSize().padding(MaterialTheme.spacing.small)) {
+    Column (
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
+    ) {
         Text("Gm Toolbox", style = MaterialTheme.typography.titleMedium)
         CheckBoxText(
             text = "Gm mode",
             checked = isGmChecked,
-            onCheck = onGmCheck
+            onCheck = onGmCheck,
+            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
         )
-        BoardSelector(
-            selectedBoard = selectedBoard,
-            boards = boards,
-            onBoardSelect = onBoardSelect,
+        StringSelector(
+            selectedOptions = selectedBoard,
+            options = boards,
+            placeHolder = "Choose a map",
+            onOptionSelect = onBoardSelect,
         )
-        Text("Initiative order")
-        Text("Add a character")
+        Button(
+            enabled = selectedBoard != null,
+            onClick = onBoardSubmit,
+            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
+        ) {
+            Text("Load")
+        }
+        StringSelector(
+            selectedOptions = selectedCharacter,
+            options = characters.map { it.name },
+            placeHolder = "Choose a character",
+            onOptionSelect = onCharacterSelect,
+        )
+        Button(
+            enabled = selectedCharacter != null,
+            onClick = onCharacterSubmit,
+            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
+        ) {
+            Text("Add")
+        }
+        ReorderableList(
+            items = characters.mapIndexed { index, item -> Item(index, item.name, item.cmId) },
+            onDelete = onDelete,
+            onChangeInitiative = onChangeInitiative,
+            modifier = Modifier
+                .padding(bottom = MaterialTheme.spacing.medium)
+                .weight(1f, fill = false)
+        )
+        Button(onClick = onStartGame) {
+            Text("Start Game")
+        }
     }
 }
 
+data class ItemMove(val from: Int, val to: Int)
+data class Item(val index: Int, val name: String, val secondId: Int? = null)
+
 @Composable
-private fun BoardSelector(
-    selectedBoard: String?,
-    boards: List<String>,
-    onBoardSelect: (String) -> Unit,
+fun ReorderableList(
+    items: List<Item>,
+    onChangeInitiative: (ItemMove) -> Unit,
+    onDelete: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    StringSelector(
-        options = boards,
-        selectedOption = selectedBoard,
-        onBoardSelect = onBoardSelect,
-        modifier = modifier
-    )
+    val lazyListState = rememberLazyListState()
+    val reorderableLazyColumnState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        onChangeInitiative(ItemMove(from = from.index, to = to.index))
+    }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize()
+            .border(1.dp, MaterialTheme.colorScheme.onSurface, MaterialTheme.shapes.small),
+        state = lazyListState,
+        contentPadding = PaddingValues(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itemsIndexed(items, key = { _, item -> item.index }) { _, item ->
+            ReorderableItem(reorderableLazyColumnState, item.index) {
+                Card(
+                    onClick = {},
+                    modifier = Modifier.fillMaxSize().draggableHandle()
+                ){
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DragHandle,
+                            contentDescription = "Reorder",
+                        )
+                        val label = if (item.secondId == null) item.name else "${item.name} - ${item.secondId}"
+                        Text(label, Modifier.weight(1f))
+                        IconButton(
+                            onClick = { onDelete(item.index) }
+                        ) {
+                            Icon(Icons.Filled.Close, contentDescription = "Delete")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StringSelector(
     options: List<String>,
-    selectedOption: String?,
-    onBoardSelect: (String) -> Unit,
+    selectedOptions: String?,
+    placeHolder: String,
+    onOptionSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var selectedText by remember { mutableStateOf(selectedOption ?: options.firstOrNull().orEmpty()) }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -264,7 +369,8 @@ fun StringSelector(
         modifier = modifier
     ) {
         Row(
-            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, MaterialTheme.colorScheme.onSurface, MaterialTheme.shapes.small)
@@ -274,7 +380,11 @@ fun StringSelector(
                 .padding(MaterialTheme.spacing.small)
         ) {
             Text(
-                text = selectedText
+                color = MaterialTheme.colorScheme.primary.copy(
+                    if (selectedOptions != null) 1f else 0.4f
+                ),
+                text = selectedOptions ?: placeHolder,
+                modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -285,15 +395,13 @@ fun StringSelector(
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-                    modifier = Modifier
-                .pointerHoverIcon(PointerIcon.Hand)
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
         ) {
-            options.forEach { option ->
+            options.forEach { board ->
                 DropdownMenuItem(
-                    text = { Text(option) },
+                    text = { Text(board) },
                     onClick = {
-                        selectedText = option
-                        onBoardSelect(option)
+                        onOptionSelect(board)
                         expanded = false
                     }
                 )
@@ -736,7 +844,7 @@ private fun MapSideBar(
         )
         Text("History:")
         LazyColumn(
-            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary)
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                 .padding(horizontal = MaterialTheme.spacing.small)
                 .fillMaxSize()
         ) {

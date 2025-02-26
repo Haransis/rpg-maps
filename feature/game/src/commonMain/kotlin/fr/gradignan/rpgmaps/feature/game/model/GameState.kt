@@ -11,7 +11,8 @@ sealed class GameState {
     data class Error(val error: UiText): GameState()
     data class Game(
         val boards: List<String> = emptyList(),
-        val selectedBoard: String = "",
+        val selectedBoard: String? = null,
+        val selectedChar: String? = null,
         val mapScale: Float = 30f,
         val playerName: String = "",
         val characters: List<Character> = emptyList(),
