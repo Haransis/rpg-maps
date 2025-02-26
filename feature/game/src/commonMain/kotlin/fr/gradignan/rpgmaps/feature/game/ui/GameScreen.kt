@@ -55,6 +55,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,17 +86,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.touchlab.kermit.Logger
+import coil3.compose.AsyncImagePainter
+import coil3.compose.rememberAsyncImagePainter
 import fr.gradignan.rpgmaps.core.common.format
+import fr.gradignan.rpgmaps.core.model.Board
 import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.ui.error.UiText
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
 import fr.gradignan.rpgmaps.feature.game.model.GameState
 import fr.gradignan.rpgmaps.feature.game.model.PreviewPath
-import org.jetbrains.compose.resources.imageResource
 import org.koin.compose.viewmodel.koinViewModel
-import rpg_maps.feature.game.generated.resources.Res
-import rpg_maps.feature.game.generated.resources.defile1
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.PI
@@ -200,9 +202,9 @@ fun GameContent(
             modifier = Modifier.fillMaxWidth(0.2f)
         )
         MapContainer(
+            imageUrl = gameState.imageUrl,
             previewPath = gameState.previewPath,
             hoveredCharacterId = gameState.hoveredCharacterId,
-            isPlayerTurn = gameState.isPlayerTurn,
             selectedCharacter = gameState.selectedCharacter,
             pings = gameState.pings,
             characters = gameState.characters,
@@ -228,7 +230,7 @@ fun GameContent(
                 onStartGame = onStartGame,
                 onBoardSelect = onBoardSelect,
                 onGmCheck = onGmCheck,
-                modifier = Modifier.fillMaxWidth(0.2f),
+                modifier = Modifier.fillMaxWidth(0.3f),
             )
         }
     }
@@ -236,8 +238,8 @@ fun GameContent(
 
 @Composable
 fun GmToolBox(
-    selectedBoard: String?,
-    boards: List<String>,
+    selectedBoard: Board?,
+    boards: List<Board>,
     selectedCharacter: String?,
     characters: List<Character>,
     isGmChecked: Boolean,
@@ -263,8 +265,8 @@ fun GmToolBox(
             modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
         )
         StringSelector(
-            selectedOptions = selectedBoard,
-            options = boards,
+            selectedOptions = selectedBoard?.name,
+            options = boards.map { it.name },
             placeHolder = "Choose a map",
             onOptionSelect = onBoardSelect,
         )
@@ -303,7 +305,7 @@ fun GmToolBox(
 }
 
 data class ItemMove(val from: Int, val to: Int)
-data class Item(val index: Int, val name: String, val secondId: Int? = null)
+data class Item(val index: Int, val name: String, val optionalId: Int? = null)
 
 @Composable
 fun ReorderableList(
@@ -338,7 +340,7 @@ fun ReorderableList(
                             imageVector = Icons.Rounded.DragHandle,
                             contentDescription = "Reorder",
                         )
-                        val label = if (item.secondId == null) item.name else "${item.name} - ${item.secondId}"
+                        val label = if (item.optionalId == null) item.name else "${item.name} - ${item.optionalId}"
                         Text(label, Modifier.weight(1f))
                         IconButton(
                             onClick = { onDelete(item.index) }
@@ -412,9 +414,9 @@ fun StringSelector(
 
 @Composable
 private fun MapContainer(
+    imageUrl: String?,
     previewPath: PreviewPath,
     hoveredCharacterId: Int?,
-    isPlayerTurn: Boolean,
     selectedCharacter: Character?,
     pings: List<MapEffect.Ping>,
     characters: List<Character>,
@@ -433,39 +435,50 @@ private fun MapContainer(
             .clipToBounds(),
         contentAlignment = Alignment.Center
     ) {
-        MapContent(
-            previewPath = previewPath,
-            mapTransformState = mapTransformState,
-            characters = characters,
-            hoveredCharacterId = hoveredCharacterId,
-            isPlayerTurn = isPlayerTurn,
-            selectedCharacter = selectedCharacter,
-            pings = pings,
-            onMapClick = onMapClick,
-            onPointerMove = onPointerMove,
-            onDoubleClick = onDoubleClick,
-            onUnselect = onUnselect,
-        )
-        MapControls(
-            mapTransformState = mapTransformState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
-        AnimatedVisibility(
-            visible = errorMessage != null,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
-            modifier = Modifier.align(Alignment.TopStart)
-                .padding(MaterialTheme.spacing.small)
-        ) {
-            errorMessage?.let { error ->
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = MaterialTheme.colorScheme.errorContainer
-                ) {
-                    Text(
-                        text = "${error.asString()} ..."
-                    )
+        if (imageUrl != null) {
+            MapContent(
+                imageUrl = imageUrl,
+                previewPath = previewPath,
+                mapTransformState = mapTransformState,
+                characters = characters,
+                hoveredCharacterId = hoveredCharacterId,
+                selectedCharacter = selectedCharacter,
+                pings = pings,
+                onMapClick = onMapClick,
+                onPointerMove = onPointerMove,
+                onDoubleClick = onDoubleClick,
+                onUnselect = onUnselect,
+            )
+            MapControls(
+                mapTransformState = mapTransformState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+            AnimatedVisibility(
+                visible = errorMessage != null,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+                modifier = Modifier.align(Alignment.TopStart)
+                    .padding(MaterialTheme.spacing.small)
+            ) {
+                errorMessage?.let { error ->
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Text(
+                            text = "${error.asString()} ..."
+                        )
+                    }
                 }
+            }
+        } else {
+            if (errorMessage != null) {
+                Text(
+                    color = MaterialTheme.colorScheme.error,
+                    text = errorMessage.asString()
+                )
+            } else {
+                Text("Waiting for game master...")
             }
         }
     }
@@ -521,11 +534,11 @@ data class MapTransformer(
 
 @Composable
 private fun MapContent(
+    imageUrl: String?,
     previewPath: PreviewPath,
     mapTransformState: MapTransformState,
     characters: List<Character>,
     hoveredCharacterId: Int?,
-    isPlayerTurn: Boolean,
     selectedCharacter: Character?,
     pings: List<MapEffect.Ping>,
     onMapClick: (Offset) -> Unit,
@@ -547,36 +560,45 @@ private fun MapContent(
             .detectDragMap { dragAmount -> mapTransformState.applyPan(dragAmount) }
             .detectZoom { delta -> mapTransformState.applyZoom(delta) }
     ) {
-        val mapImage = imageResource(Res.drawable.defile1)
-        val transformer: MapTransformer = remember(mapImage) {
-            MapTransformer(mapImage.width, mapImage.height)
-        }
+        val painter = rememberAsyncImagePainter(
+            imageUrl, contentScale = ContentScale.Inside
+        )
 
-        Image(
-            bitmap = mapImage,
-            contentDescription = "Zoomable Image",
-            contentScale = ContentScale.Inside,
-            modifier = Modifier.fillMaxSize()
-        )
-        CharactersOverlay(
-            previewPath = previewPath,
-            characters = characters,
-            transformer = transformer,
-            hoveredCharacterId = hoveredCharacterId,
-            selectedCharacter = selectedCharacter,
-            isPlayerTurn = isPlayerTurn,
-            onMapClick = onMapClick,
-            onDoubleClick = onDoubleClick,
-            onPointerMove = onPointerMove,
-            onUnselect = onUnselect,
-            modifier = Modifier.matchParentSize()
-                .pointerHoverIcon(if (hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
-        )
-        AnimationsOverlay(
-            pings = pings,
-            transformer = transformer,
-            modifier = Modifier.matchParentSize()
-        )
+        val painterState by painter.state.collectAsState()
+        when (val state = painterState) {
+            AsyncImagePainter.State.Empty,
+            is AsyncImagePainter.State.Loading -> CircularProgressIndicator()
+            is AsyncImagePainter.State.Success -> {
+                val transformer: MapTransformer = remember(state) {
+                    MapTransformer(state.result.image.width, state.result.image.height)
+                }
+                Image(
+                    painter = painter,
+                    contentDescription = "Zoomable Image",
+                    contentScale = ContentScale.Inside,
+                    modifier = Modifier.fillMaxSize()
+                )
+                CharactersOverlay(
+                    previewPath = previewPath,
+                    characters = characters,
+                    transformer = transformer,
+                    hoveredCharacterId = hoveredCharacterId,
+                    selectedCharacter = selectedCharacter,
+                    onMapClick = onMapClick,
+                    onDoubleClick = onDoubleClick,
+                    onPointerMove = onPointerMove,
+                    onUnselect = onUnselect,
+                    modifier = Modifier.matchParentSize()
+                        .pointerHoverIcon(if (hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
+                )
+                AnimationsOverlay(
+                    pings = pings,
+                    transformer = transformer,
+                    modifier = Modifier.matchParentSize()
+                )
+            }
+            is AsyncImagePainter.State.Error -> Text(text = "Error loading image", color = MaterialTheme.colorScheme.error)
+        }
     }
 }
 
@@ -587,7 +609,6 @@ private fun CharactersOverlay(
     transformer: MapTransformer,
     hoveredCharacterId: Int?,
     selectedCharacter: Character?,
-    isPlayerTurn: Boolean,
     onMapClick: (Offset) -> Unit,
     onDoubleClick: () -> Unit,
     onPointerMove: (Offset) -> Unit,
@@ -619,7 +640,6 @@ private fun CharactersOverlay(
             }
     ) {
         selectedCharacter?.let {
-            if (!isPlayerTurn) return@let
             drawMovementIndicator(
                 previewPath = previewPath,
                 transformer = transformer,
@@ -825,7 +845,7 @@ private fun MapSideBar(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
     ) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

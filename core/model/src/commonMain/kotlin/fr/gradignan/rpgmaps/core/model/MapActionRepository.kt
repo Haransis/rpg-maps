@@ -7,4 +7,5 @@ interface MapActionRepository {
     fun getMapEffectsFlow(): Flow<MapEffect>
     suspend fun endTurn(id: Int): EmptyResult<DataError>
     suspend fun sendMove(move: MapUpdate.Move): EmptyResult<DataError>
+    suspend fun sendLoadMap(loadMap: MapUpdate.LoadMap): EmptyResult<DataError>
 }

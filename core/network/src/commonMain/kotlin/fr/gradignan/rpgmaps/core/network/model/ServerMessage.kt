@@ -1,6 +1,5 @@
 package fr.gradignan.rpgmaps.core.network.model
 
-import co.touchlab.kermit.Logger
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -30,6 +29,7 @@ data class ServerMessage(
                 "Connect" -> decoder.json.decodeFromJsonElement(Payload.ServerConnect.serializer(), jsonObject)
                 "LoadMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerLoadMap.serializer(), jsonObject)
                 "Initiate"   -> decoder.json.decodeFromJsonElement(Payload.ServerInitiate.serializer(), jsonObject)
+                "GMGetMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerGMGetMap.serializer(), jsonObject)
                 "Move"   -> decoder.json.decodeFromJsonElement(Payload.ServerMove.serializer(), jsonObject)
                 "NewTurn"   -> decoder.json.decodeFromJsonElement(Payload.ServerNewTurn.serializer(), jsonObject)
                 "Next"   -> decoder.json.decodeFromJsonElement(Payload.ServerNext.serializer(), jsonObject)
@@ -51,6 +51,7 @@ data class ServerMessage(
                         put("characters", encoder.json.encodeToJsonElement(Payload.ServerInitiate.serializer(), payload))
                     }
                     is Payload.ServerLoadMap -> {
+                        put("map_id", JsonPrimitive(payload.id))
                         put("map", JsonPrimitive(payload.map))
                     }
                     Payload.ServerNewTurn -> { }
@@ -67,6 +68,10 @@ data class ServerMessage(
                     is Payload.ServerPing -> {
                         put("x", JsonPrimitive(payload.x))
                         put("y", JsonPrimitive(payload.y))
+                    }
+
+                    is Payload.ServerGMGetMap -> {
+                        put("characters", encoder.json.encodeToJsonElement(Payload.ServerGMGetMap.serializer(), payload))
                     }
                 }
             }

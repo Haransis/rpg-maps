@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.common.updateIfIs
+import fr.gradignan.rpgmaps.core.model.Board
 import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
@@ -57,7 +58,7 @@ class GameViewModel(
         roomRepository.getBoards()
             .onSuccess { boards ->
                 _gameState.updateIfIs<GameState.Game> { currentState ->
-                    currentState.copy(boards = boards.map { it.name })
+                    currentState.copy(boards = boards)
                 }
             }
             .onError { error ->
@@ -111,17 +112,20 @@ class GameViewModel(
     private fun GameState.Game.update(mapUpdate: MapUpdate): GameState.Game =
         when(mapUpdate) {
             is MapUpdate.Connect -> this.copy(logs = logs + "- ${mapUpdate.user} connected")
+            is MapUpdate.GMGetMap -> if (isAdmin) this.copy(
+                characters = mapUpdate.characters
+            ) else this
             is MapUpdate.Initiate -> this.copy(
                 logs = logs + "- Starting game",
                 characters = mapUpdate.characters
             )
             is MapUpdate.LoadMap -> this.copy(
-                logs = logs + "- Loading map: ${mapUpdate.map}",
-                map = mapUpdate.map
+                logs = logs + "- Loading map: ${mapUpdate.map.substringAfterLast("/").substringBeforeLast(".")}",
+                imageUrl = mapUpdate.map
             )
             is MapUpdate.Move -> {
                 val updatedCharacters = this.characters.toMutableList().apply {
-                    this.indexOfFirst { it.id == mapUpdate.id }.takeIf { it != -1 }?.let { index ->
+                    this.indexOfFirst { it.cmId == mapUpdate.id }.takeIf { it != -1 }?.let { index ->
                         val updatedCharacter = this[index].copy(x = mapUpdate.x, y = mapUpdate.y)
                         set(index, updatedCharacter)
                     }
@@ -161,8 +165,8 @@ class GameViewModel(
     }
 
     fun onBoardSelect(board: String) {
-        _gameState.updateIfIs<GameState.Game> {
-            it.copy(selectedBoard = board)
+        _gameState.updateIfIs<GameState.Game> { currentState ->
+            currentState.copy(selectedBoard = currentState.boards.firstOrNull { it.name == board })
         }
     }
 
@@ -185,7 +189,7 @@ class GameViewModel(
 
             when {
                 clickedCharacter != null -> selectCharacter(currentState, clickedCharacter)
-                currentState.selectedCharacter?.owner == currentState.playerName || !currentState.isGmChecked -> currentState.appendPath(point)
+                currentState.selectedCharacter?.owner == currentState.playerName || currentState.isGmChecked -> currentState.appendPath(point)
                 else -> currentState.deselectCharacter()
             }
         }
@@ -199,9 +203,9 @@ class GameViewModel(
     }
 
     private fun selectCharacter(state: GameState.Game, character: Character): GameState.Game {
-        if (character.owner != state.playerName && !isAdmin) {
-            return state.copy(selectedCharacter = character)
-        } else {
+        if (
+            (character.owner == state.playerName && state.isPlayerTurn) || state.isGmChecked
+            ) {
             val characterPosition = Offset(character.x.toFloat(), character.y.toFloat())
             return state.copy(
                 selectedCharacter = character,
@@ -211,6 +215,8 @@ class GameViewModel(
                     totalDistance = 0f
                 )
             )
+        } else {
+            return state.copy(selectedCharacter = character)
         }
     }
 
@@ -226,7 +232,7 @@ class GameViewModel(
 
     private fun GameState.Game.updatePath(end: Offset): GameState.Game {
         val reachablePath = this.previewPath.reachable
-        if (reachablePath.size < 2 || !isPlayerTurn) return this
+        if (reachablePath.size < 2 || (!isPlayerTurn && !isGmChecked)) return this
 
         val start = reachablePath[reachablePath.lastIndex - 1]
         val previousDistance = reachablePath.dropLast(1).totalDistance() / mapScale
@@ -307,13 +313,18 @@ class GameViewModel(
         }
     }
 
-    fun onBoardSubmit() {
-        TODO("not implemented")
-    }
-
     fun onCharacterSelect(name: String) {
         _gameState.updateIfIs<GameState.Game> {
             it.copy(selectedChar = name)
+        }
+    }
+
+    fun onBoardSubmit() {
+        (_gameState.value as? GameState.Game)?.let {
+            if (it.selectedBoard == null) return
+            viewModelScope.launch {
+                mapActionRepository.sendLoadMap(MapUpdate.LoadMap(it.selectedBoard.id, it.selectedBoard.name))
+            }
         }
     }
 

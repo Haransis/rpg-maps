@@ -10,8 +10,8 @@ sealed class GameState {
     data object Loading: GameState()
     data class Error(val error: UiText): GameState()
     data class Game(
-        val boards: List<String> = emptyList(),
-        val selectedBoard: String? = null,
+        val boards: List<Board> = emptyList(),
+        val selectedBoard: Board? = null,
         val selectedChar: String? = null,
         val mapScale: Float = 30f,
         val playerName: String = "",
@@ -27,7 +27,7 @@ sealed class GameState {
         val isGmChecked: Boolean = false,
         val logs: List<String> = emptyList(),
         val previewPath: PreviewPath = PreviewPath(),
-        val map: String? = null
+        val imageUrl: String? = null
     ): GameState()
 }
 

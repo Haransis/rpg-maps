@@ -48,4 +48,7 @@ class DefaultMapActionRepository(
 
     override suspend fun sendMove(move: MapUpdate.Move): EmptyResult<DataError> =
         webSocketClient.sendMessage(move)
+
+    override suspend fun sendLoadMap(loadMap: MapUpdate.LoadMap): EmptyResult<DataError> =
+        webSocketClient.sendMessage(loadMap)
 }

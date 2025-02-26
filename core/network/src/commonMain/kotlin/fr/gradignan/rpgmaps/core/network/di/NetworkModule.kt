@@ -61,7 +61,7 @@ val NetworkModule = module {
             install(Logging){
                 logger = object: Logger {
                     override fun log(message: String) {
-                        co.touchlab.kermit.Logger.v("HTTP Client", null, message)
+                        //co.touchlab.kermit.Logger.v("HTTP Client", null, message)
                     }
                 }
                 level = LogLevel.HEADERS
