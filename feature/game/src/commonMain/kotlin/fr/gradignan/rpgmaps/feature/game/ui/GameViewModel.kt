@@ -178,6 +178,11 @@ class GameViewModel(
                     mapCharacters = mapCharacters + mapUpdate.character
                 )
             }
+            is MapUpdate.InitiativeOrder -> {
+                this.copy(
+                    mapCharacters = mapCharacters.sortedBy { it.cmId in mapUpdate.order }
+                )
+            }
         }
 
     fun onEndTurn() {
@@ -369,15 +374,32 @@ class GameViewModel(
     }
 
     fun onStartGame() {
-        TODO("not implemented")
+        viewModelScope.launch {
+            mapActionRepository.startGame()
+                .onError { error -> handleMapUpdateError(error) }
+        }
     }
 
     fun onDeleteChar(index: Int) {
         TODO("Not yet implemented")
     }
 
-    fun onChangeInitiative(move: ItemMove) {
-        TODO("Not yet implemented")
+    fun onChangeInitiative(order: List<Int>) {
+        viewModelScope.launch {
+            mapActionRepository.sendInitiativeOrder(MapUpdate.InitiativeOrder(order))
+                .onError { error -> handleMapUpdateError(error) }
+        }
+        /*(_gameState.value as? GameState.Game)?.let { state ->
+            val currentOrder = state.mapCharacters.map { it.cmId }
+            val newOrder = currentOrder.toMutableList().apply {
+                removeAt(move.from)
+                add(move.to, currentOrder[move.from])
+            }
+            viewModelScope.launch {
+                mapActionRepository.sendInitiativeOrder(MapUpdate.InitiativeOrder(newOrder))
+                    .onError { error -> handleMapUpdateError(error) }
+            }
+        }*/
     }
 
 }

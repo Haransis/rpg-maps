@@ -13,6 +13,14 @@ sealed class Payload {
     @Serializable
     data class ServerConnect(val user: String) : Payload()
 
+    @SerialName("Initiative")
+    @Serializable
+    data object ServerStartGame : Payload()
+
+    @SerialName("InitiativeOrder")
+    @Serializable
+    data class ServerInitiativeOrder(val order: List<Int>) : Payload()
+
     @SerialName("Initiate")
     @Serializable
     data class ServerInitiate(val characters: List<NetworkCharacter>) : Payload()
@@ -60,8 +68,10 @@ fun Payload.toMapAction(): MapAction =
         is Payload.ServerNext -> MapUpdate.Next(id)
         is Payload.ServerPing -> MapEffect.Ping(x.toInt(), y.toInt())
         is Payload.ServerGMGetMap -> MapUpdate.GMGetMap(characters.toExternal())
-        is Payload.ServerAddCharacterInput -> throw IllegalStateException("not handled")
         is Payload.ServerAddCharacterOutput -> MapUpdate.AddCharacter(character.toExternal(), emptyList())
+        is Payload.ServerAddCharacterInput -> throw IllegalStateException("not handled")
+        Payload.ServerStartGame -> throw IllegalStateException("not handled")
+        is Payload.ServerInitiativeOrder -> MapUpdate.InitiativeOrder(order)
     }
 
 fun MapAction.toServerMessage(): ServerMessage =
@@ -73,8 +83,8 @@ fun MapAction.toServerMessage(): ServerMessage =
             action = "Connect",
             payload = Payload.ServerConnect(user))
         is MapUpdate.Initiate -> ServerMessage(
-            action = "Initiate",
-            payload = Payload.ServerInitiate(mapCharacters.toNetwork()))
+            action = "Initiative",
+            payload = Payload.ServerStartGame)
         is MapUpdate.LoadMap -> ServerMessage(
             action = "LoadMap",
             payload = Payload.ServerLoadMap(id, map))
@@ -93,4 +103,7 @@ fun MapAction.toServerMessage(): ServerMessage =
         is MapUpdate.AddCharacter -> ServerMessage(
             action = "AddChar",
             payload = Payload.ServerAddCharacterInput(character.toNetwork(), order))
+        is MapUpdate.InitiativeOrder -> ServerMessage(
+            action = "Initiative",
+            payload = Payload.ServerInitiativeOrder(order))
     }

@@ -27,15 +27,17 @@ data class ServerMessage(
 
             val payload: Payload = when (action) {
                 "Connect" -> decoder.json.decodeFromJsonElement(Payload.ServerConnect.serializer(), jsonObject)
-                "GMGetMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerGMGetMap.serializer(), jsonObject)
-                "Initiate"   -> decoder.json.decodeFromJsonElement(Payload.ServerInitiate.serializer(), jsonObject)
-                "LoadMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerLoadMap.serializer(), jsonObject)
-                "Move"   -> decoder.json.decodeFromJsonElement(Payload.ServerMove.serializer(), jsonObject)
-                "NewChar"   -> decoder.json.decodeFromJsonElement(Payload.ServerAddCharacterOutput.serializer(), jsonObject)
-                "NewTurn"   -> decoder.json.decodeFromJsonElement(Payload.ServerNewTurn.serializer(), jsonObject)
-                "Next"   -> decoder.json.decodeFromJsonElement(Payload.ServerNext.serializer(), jsonObject)
-                "Ping"   -> decoder.json.decodeFromJsonElement(Payload.ServerPing.serializer(), jsonObject)
-                else    -> throw SerializationException("Unknown action: $action")
+                "GMGetMap" -> decoder.json.decodeFromJsonElement(Payload.ServerGMGetMap.serializer(), jsonObject)
+                "Initiate" -> decoder.json.decodeFromJsonElement(Payload.ServerInitiate.serializer(), jsonObject)
+                "Initiative" -> Payload.ServerStartGame
+                "InitiativeOrder" -> decoder.json.decodeFromJsonElement(Payload.ServerInitiativeOrder.serializer(), jsonObject)
+                "LoadMap" -> decoder.json.decodeFromJsonElement(Payload.ServerLoadMap.serializer(), jsonObject)
+                "Move" -> decoder.json.decodeFromJsonElement(Payload.ServerMove.serializer(), jsonObject)
+                "NewChar" -> decoder.json.decodeFromJsonElement(Payload.ServerAddCharacterOutput.serializer(), jsonObject)
+                "NewTurn" -> Payload.ServerNewTurn
+                "Next" -> decoder.json.decodeFromJsonElement(Payload.ServerNext.serializer(), jsonObject)
+                "Ping" -> decoder.json.decodeFromJsonElement(Payload.ServerPing.serializer(), jsonObject)
+                else -> throw SerializationException("Unknown action: $action")
             }
             return ServerMessage(action, payload)
         }
@@ -56,6 +58,7 @@ data class ServerMessage(
                         put("map", JsonPrimitive(payload.map))
                     }
                     Payload.ServerNewTurn -> { }
+                    Payload.ServerStartGame -> { }
                     is Payload.ServerMove -> {
                         put("name", JsonPrimitive(payload.name))
                         put("x", JsonPrimitive(payload.x))
@@ -78,6 +81,9 @@ data class ServerMessage(
                         put("order", encoder.json.encodeToJsonElement(payload.order))
                     }
                     is Payload.ServerAddCharacterOutput -> throw IllegalStateException("not handled")
+                    is Payload.ServerInitiativeOrder -> {
+                        put("order", encoder.json.encodeToJsonElement(payload.order))
+                    }
                 }
             }
             encoder.encodeJsonElement(jsonObject)

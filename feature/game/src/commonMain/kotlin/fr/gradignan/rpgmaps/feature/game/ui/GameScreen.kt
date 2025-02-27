@@ -86,6 +86,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.touchlab.kermit.Logger
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import fr.gradignan.rpgmaps.core.common.format
@@ -181,7 +182,7 @@ fun GameContent(
     onCharacterSelect: (String) -> Unit,
     onCharacterSubmit: () -> Unit,
     onDeleteChar: (Int) -> Unit,
-    onChangeInitiative: (ItemMove) -> Unit,
+    onChangeInitiative: (List<Int>) -> Unit,
     onStartGame: () -> Unit,
     onBack: () -> Unit,
     onBoardSelect: (String) -> Unit,
@@ -250,7 +251,7 @@ fun GmToolBox(
     isGmChecked: Boolean,
     onBoardSelect: (String) -> Unit,
     onBoardSubmit: () -> Unit,
-    onChangeInitiative: (ItemMove) -> Unit,
+    onChangeInitiative: (List<Int>) -> Unit,
     onCharacterSelect: (String) -> Unit,
     onCharacterSubmit: () -> Unit,
     onDelete: (Int) -> Unit,
@@ -315,13 +316,18 @@ data class Item(val index: Int, val name: String, val optionalId: Int? = null)
 @Composable
 fun ReorderableList(
     items: List<Item>,
-    onChangeInitiative: (ItemMove) -> Unit,
+    onChangeInitiative: (List<Int>) -> Unit,
     onDelete: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val lazyListState = rememberLazyListState()
+    var list by remember(items) {
+        mutableStateOf(items)
+    }
     val reorderableLazyColumnState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        onChangeInitiative(ItemMove(from = from.index, to = to.index))
+        list = list.toMutableList().apply {
+            add(to.index, removeAt(from.index))
+        }
     }
 
     LazyColumn(
@@ -331,11 +337,17 @@ fun ReorderableList(
         contentPadding = PaddingValues(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        itemsIndexed(items, key = { _, item -> item.index }) { _, item ->
+        itemsIndexed(list, key = { _, item -> item.index }) { _, item ->
             ReorderableItem(reorderableLazyColumnState, item.index) {
                 Card(
                     onClick = {},
-                    modifier = Modifier.fillMaxSize().draggableHandle()
+                    modifier = Modifier.fillMaxSize().draggableHandle(
+                        onDragStopped = {
+                            if (list != items) {
+                                onChangeInitiative(list.map { it.index })
+                            }
+                        }
+                    )
                 ){
                     Row(
                         horizontalArrangement = Arrangement.SpaceBetween,

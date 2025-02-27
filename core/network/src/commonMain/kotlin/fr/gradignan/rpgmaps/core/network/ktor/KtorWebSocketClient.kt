@@ -108,7 +108,6 @@ class KtorWebSocketClient(
                         for (frame in ws.incoming) {
                             if (frame is Frame.Text) {
                                 val jsonString = frame.readText()
-                                Logger.d("jsonString: $jsonString")
                                 emit(processIncomingMessage(jsonString))
                             }
                         }

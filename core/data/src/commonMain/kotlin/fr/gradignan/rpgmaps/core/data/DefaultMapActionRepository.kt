@@ -1,11 +1,9 @@
 package fr.gradignan.rpgmaps.core.data
 
-import fr.gradignan.rpgmaps.core.model.DataCharacter
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.EmptyResult
 import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
-import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
 import fr.gradignan.rpgmaps.core.model.Result
@@ -58,4 +56,10 @@ class DefaultMapActionRepository(
     ): EmptyResult<DataError> = webSocketClient.sendMessage(MapUpdate.AddCharacter(
         NetworkCharacter(owner = owner, characterId = characterId).toAddCharacter(), order
     ))
+
+    override suspend fun startGame(): EmptyResult<DataError> =
+        webSocketClient.sendMessage(MapUpdate.Initiate(emptyList()))
+
+    override suspend fun sendInitiativeOrder(initiativeOrder: MapUpdate.InitiativeOrder): EmptyResult<DataError> =
+        webSocketClient.sendMessage(initiativeOrder)
 }

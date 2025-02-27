@@ -52,7 +52,7 @@ inline fun <reified T : Character> NetworkCharacter.toExternal(): T {
     }
 }
 
-inline fun <reified T : Character> List<NetworkCharacter>.toExternal(): List<T> = map(NetworkCharacter::toExternal) /*map { it.toExternal<T>() }*/
+inline fun <reified T : Character> List<NetworkCharacter>.toExternal(): List<T> = map(NetworkCharacter::toExternal)
 
 fun MapCharacter.toNetwork(): NetworkCharacter {
     return NetworkCharacter(

@@ -9,4 +9,6 @@ interface MapActionRepository {
     suspend fun sendMove(move: MapUpdate.Move): EmptyResult<DataError>
     suspend fun sendLoadMap(loadMap: MapUpdate.LoadMap): EmptyResult<DataError>
     suspend fun sendAddCharacter(characterId: Int, owner: String, order: List<Int>): EmptyResult<DataError>
+    suspend fun startGame(): EmptyResult<DataError>
+    suspend fun sendInitiativeOrder(initiativeOrder: MapUpdate.InitiativeOrder): EmptyResult<DataError>
 }
