@@ -11,6 +11,9 @@ sealed class GameState {
     data object Loading: GameState()
     data class Error(val error: UiText): GameState()
     data class Game(
+        val laserPosition: Offset? = null,
+        val isPingChecked: Boolean = false,
+        val isRulerChecked: Boolean = false,
         val boards: List<Board> = emptyList(),
         val selectedBoard: Board? = null,
         val selectedChar: String? = null,
@@ -28,13 +31,14 @@ sealed class GameState {
         val isSprintChecked: Boolean = false,
         val isGmChecked: Boolean = false,
         val logs: List<String> = emptyList(),
-        val previewPath: PreviewPath = PreviewPath(),
+        val ruler: DistancePath = DistancePath(),
+        val previewPath: DistancePath = DistancePath(),
         val imageUrl: String? = null
     ): GameState()
 }
 
-data class PreviewPath(
+data class DistancePath(
     val reachable: List<Offset> = emptyList(),
-    val unreachableStop: Offset? = null,
-    val totalDistance: Float = 0f
+    val totalDistance: Float = 0f,
+    val unreachableStop: Offset? = null
 )

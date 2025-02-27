@@ -62,4 +62,7 @@ class DefaultMapActionRepository(
 
     override suspend fun sendInitiativeOrder(initiativeOrder: MapUpdate.InitiativeOrder): EmptyResult<DataError> =
         webSocketClient.sendMessage(initiativeOrder)
+
+    override suspend fun sendPing(ping: MapEffect.Ping): EmptyResult<DataError> =
+        webSocketClient.sendMessage(ping)
 }

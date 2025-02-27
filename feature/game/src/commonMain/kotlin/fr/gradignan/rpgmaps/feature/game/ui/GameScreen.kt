@@ -52,6 +52,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -86,7 +87,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.touchlab.kermit.Logger
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import fr.gradignan.rpgmaps.core.common.format
@@ -97,7 +97,7 @@ import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.ui.error.UiText
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
 import fr.gradignan.rpgmaps.feature.game.model.GameState
-import fr.gradignan.rpgmaps.feature.game.model.PreviewPath
+import fr.gradignan.rpgmaps.feature.game.model.DistancePath
 import org.koin.compose.viewmodel.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -154,6 +154,8 @@ fun GameScreen(
         is GameState.Game -> {
             GameContent(
                 gameState = state,
+                onPingCheck = viewModel::onPingCheck,
+                onRulerCheck = viewModel::onRulerCheck,
                 onBack = onBack,
                 onBoardSubmit = viewModel::onBoardSubmit,
                 onCharacterSelect = viewModel::onCharacterSelect,
@@ -178,6 +180,8 @@ fun GameScreen(
 @Composable
 fun GameContent(
     gameState: GameState.Game,
+    onPingCheck: (Boolean) -> Unit,
+    onRulerCheck: (Boolean) -> Unit,
     onBoardSubmit: () -> Unit,
     onCharacterSelect: (String) -> Unit,
     onCharacterSubmit: () -> Unit,
@@ -206,6 +210,10 @@ fun GameContent(
             modifier = Modifier.fillMaxWidth(0.2f)
         )
         MapContainer(
+            laserPosition = gameState.laserPosition,
+            ruler = gameState.ruler,
+            isPingChecked = gameState.isPingChecked,
+            isRulerChecked = gameState.isRulerChecked,
             imageUrl = gameState.imageUrl,
             previewPath = gameState.previewPath,
             hoveredCharacterId = gameState.hoveredCharacterId,
@@ -213,6 +221,8 @@ fun GameContent(
             pings = gameState.pings,
             mapCharacters = gameState.mapCharacters,
             errorMessage = gameState.error,
+            onPingCheck = onPingCheck,
+            onRulerCheck = onRulerCheck,
             onMapClick = onMapClick,
             onPointerMove = onPointerMove,
             onDoubleClick = onDoubleClick,
@@ -264,7 +274,7 @@ fun GmToolBox(
         modifier = modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
     ) {
         Text("Gm Toolbox", style = MaterialTheme.typography.titleMedium)
-        CheckBoxText(
+        SwitchText(
             text = "Gm mode",
             checked = isGmChecked,
             onCheck = onGmCheck,
@@ -395,7 +405,6 @@ fun StringSelector(
                 .border(1.dp, MaterialTheme.colorScheme.onSurface, MaterialTheme.shapes.small)
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                 .clickable { expanded = true }
-                .pointerHoverIcon(PointerIcon.Default)
                 .padding(MaterialTheme.spacing.small)
         ) {
             Text(
@@ -431,13 +440,19 @@ fun StringSelector(
 
 @Composable
 private fun MapContainer(
+    laserPosition: Offset?,
+    ruler: DistancePath,
+    isPingChecked: Boolean,
+    isRulerChecked: Boolean,
     imageUrl: String?,
-    previewPath: PreviewPath,
+    previewPath: DistancePath,
     hoveredCharacterId: Int?,
     selectedMapCharacter: MapCharacter?,
     pings: List<MapEffect.Ping>,
     mapCharacters: List<MapCharacter>,
     errorMessage: UiText?,
+    onPingCheck: (Boolean) -> Unit,
+    onRulerCheck: (Boolean) -> Unit,
     onMapClick: (Offset) -> Unit,
     onPointerMove: (Offset) -> Unit,
     onDoubleClick: () -> Unit,
@@ -453,40 +468,38 @@ private fun MapContainer(
         contentAlignment = Alignment.Center
     ) {
         if (imageUrl != null) {
-            MapContent(
-                imageUrl = imageUrl,
-                previewPath = previewPath,
-                mapTransformState = mapTransformState,
-                mapCharacters = mapCharacters,
-                hoveredCharacterId = hoveredCharacterId,
-                selectedMapCharacter = selectedMapCharacter,
-                pings = pings,
-                onMapClick = onMapClick,
-                onPointerMove = onPointerMove,
-                onDoubleClick = onDoubleClick,
-                onUnselect = onUnselect,
+            val painter = rememberAsyncImagePainter(
+                imageUrl, contentScale = ContentScale.Inside
             )
-            MapControls(
-                mapTransformState = mapTransformState,
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
-            AnimatedVisibility(
-                visible = errorMessage != null,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
-                modifier = Modifier.align(Alignment.TopStart)
-                    .padding(MaterialTheme.spacing.small)
-            ) {
-                errorMessage?.let { error ->
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.errorContainer
-                    ) {
-                        Text(
-                            text = "${error.asString()} ..."
-                        )
-                    }
+            val painterState by painter.state.collectAsState()
+
+            when (val state = painterState) {
+                AsyncImagePainter.State.Empty,
+                is AsyncImagePainter.State.Loading -> CircularProgressIndicator()
+                is AsyncImagePainter.State.Success -> {
+                    MapContent(
+                        ruler = ruler,
+                        laserPosition = laserPosition,
+                        isPingChecked = isPingChecked,
+                        isRulerChecked = isRulerChecked,
+                        errorMessage = errorMessage,
+                        painter = painter,
+                        painterState = state,
+                        previewPath = previewPath,
+                        mapTransformState = mapTransformState,
+                        mapCharacters = mapCharacters,
+                        hoveredCharacterId = hoveredCharacterId,
+                        selectedMapCharacter = selectedMapCharacter,
+                        pings = pings,
+                        onPingCheck = onPingCheck,
+                        onRulerCheck = onRulerCheck,
+                        onMapClick = onMapClick,
+                        onPointerMove = onPointerMove,
+                        onDoubleClick = onDoubleClick,
+                        onUnselect = onUnselect
+                    )
                 }
+                is AsyncImagePainter.State.Error -> Text(text = "Error loading image", color = MaterialTheme.colorScheme.error)
             }
         } else {
             if (errorMessage != null) {
@@ -502,17 +515,40 @@ private fun MapContainer(
 }
 
 @Composable
-private fun MapControls(mapTransformState: MapTransformState, modifier: Modifier = Modifier) {
-    Column(modifier.padding(16.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { mapTransformState.zoomIn() }) {
-                Text("Zoom In")
-            }
-            Button(onClick = { mapTransformState.reset() }) {
-                Text("Reset")
-            }
-            Button(onClick = { mapTransformState.zoomOut() }) {
-                Text("Zoom Out")
+private fun MapControls(
+    mapTransformState: MapTransformState,
+    isPingChecked: Boolean,
+    isRulerChecked: Boolean,
+    onPingCheck: (Boolean) -> Unit,
+    onRulerCheck: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.inversePrimary,
+        shape = MaterialTheme.shapes.small,
+        modifier = modifier.padding(16.dp)
+    ) {
+        Column {
+            CheckBoxText(
+                text = "Ping",
+                checked = isPingChecked,
+                onCheck = onPingCheck
+            )
+            CheckBoxText(
+                text = "Ruler",
+                checked = isRulerChecked,
+                onCheck = onRulerCheck
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { mapTransformState.zoomIn() }) {
+                    Text("Zoom In")
+                }
+                Button(onClick = { mapTransformState.reset() }) {
+                    Text("Reset")
+                }
+                Button(onClick = { mapTransformState.zoomOut() }) {
+                    Text("Zoom Out")
+                }
             }
         }
     }
@@ -551,13 +587,21 @@ data class MapTransformer(
 
 @Composable
 private fun MapContent(
-    imageUrl: String?,
-    previewPath: PreviewPath,
+    laserPosition: Offset?,
+    ruler: DistancePath,
+    isPingChecked: Boolean,
+    isRulerChecked: Boolean,
+    errorMessage: UiText?,
+    painter: AsyncImagePainter,
+    painterState: AsyncImagePainter.State.Success,
+    previewPath: DistancePath,
     mapTransformState: MapTransformState,
     mapCharacters: List<MapCharacter>,
     hoveredCharacterId: Int?,
     selectedMapCharacter: MapCharacter?,
     pings: List<MapEffect.Ping>,
+    onPingCheck: (Boolean) -> Unit,
+    onRulerCheck: (Boolean) -> Unit,
     onMapClick: (Offset) -> Unit,
     onPointerMove: (Offset) -> Unit,
     onDoubleClick: () -> Unit,
@@ -565,63 +609,94 @@ private fun MapContent(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier
-            .width(IntrinsicSize.Min)
-            .height(IntrinsicSize.Min)
-            .graphicsLayer {
-                scaleX = mapTransformState.scale
-                scaleY = mapTransformState.scale
-                translationX = mapTransformState.offset.x
-                translationY = mapTransformState.offset.y
-            }
-            .detectDragMap { dragAmount -> mapTransformState.applyPan(dragAmount) }
-            .detectZoom { delta -> mapTransformState.applyZoom(delta) }
+        contentAlignment = Alignment.Center,
+        modifier = modifier.fillMaxSize()
     ) {
-        val painter = rememberAsyncImagePainter(
-            imageUrl, contentScale = ContentScale.Inside
-        )
-
-        val painterState by painter.state.collectAsState()
-        when (val state = painterState) {
-            AsyncImagePainter.State.Empty,
-            is AsyncImagePainter.State.Loading -> CircularProgressIndicator()
-            is AsyncImagePainter.State.Success -> {
-                val transformer: MapTransformer = remember(state) {
-                    MapTransformer(state.result.image.width, state.result.image.height)
+        Box(
+            modifier = Modifier
+                .width(IntrinsicSize.Min)
+                .height(IntrinsicSize.Min)
+                .pointerHoverIcon(
+                    when {
+                        hoveredCharacterId != null -> PointerIcon.Hand
+                        isRulerChecked -> PointerIcon.Crosshair
+                        else -> PointerIcon.Default
+                    },
+                    overrideDescendants = true
+                )
+                .graphicsLayer {
+                    scaleX = mapTransformState.scale
+                    scaleY = mapTransformState.scale
+                    translationX = mapTransformState.offset.x
+                    translationY = mapTransformState.offset.y
                 }
-                Image(
-                    painter = painter,
-                    contentDescription = "Zoomable Image",
-                    contentScale = ContentScale.Inside,
-                    modifier = Modifier.fillMaxSize()
-                )
-                CharactersOverlay(
-                    previewPath = previewPath,
-                    mapCharacters = mapCharacters,
-                    transformer = transformer,
-                    hoveredCharacterId = hoveredCharacterId,
-                    selectedMapCharacter = selectedMapCharacter,
-                    onMapClick = onMapClick,
-                    onDoubleClick = onDoubleClick,
-                    onPointerMove = onPointerMove,
-                    onUnselect = onUnselect,
-                    modifier = Modifier.matchParentSize()
-                        .pointerHoverIcon(if (hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
-                )
-                AnimationsOverlay(
-                    pings = pings,
-                    transformer = transformer,
-                    modifier = Modifier.matchParentSize()
-                )
+                .detectDragMap { dragAmount -> mapTransformState.applyPan(dragAmount) }
+                .detectZoom { delta -> mapTransformState.applyZoom(delta) }
+        ) {
+            val transformer: MapTransformer = remember(painterState) {
+                MapTransformer(painterState.result.image.width, painterState.result.image.height)
             }
-            is AsyncImagePainter.State.Error -> Text(text = "Error loading image", color = MaterialTheme.colorScheme.error)
+            Image(
+                painter = painter,
+                contentDescription = "Zoomable Image",
+                contentScale = ContentScale.Inside,
+                modifier = Modifier.fillMaxSize()
+            )
+            CharactersOverlay(
+                laserPosition = laserPosition,
+                ruler = ruler,
+                previewPath = previewPath,
+                mapCharacters = mapCharacters,
+                transformer = transformer,
+                hoveredCharacterId = hoveredCharacterId,
+                selectedMapCharacter = selectedMapCharacter,
+                onMapClick = onMapClick,
+                onDoubleClick = onDoubleClick,
+                onPointerMove = onPointerMove,
+                onUnselect = onUnselect,
+                modifier = Modifier.matchParentSize()
+                    .pointerHoverIcon(if (hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
+            )
+            AnimationsOverlay(
+                pings = pings,
+                transformer = transformer,
+                modifier = Modifier.matchParentSize()
+            )
+        }
+        MapControls(
+            isPingChecked = isPingChecked,
+            isRulerChecked = isRulerChecked,
+            onPingCheck = onPingCheck,
+            onRulerCheck = onRulerCheck,
+            mapTransformState = mapTransformState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+        AnimatedVisibility(
+            visible = errorMessage != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+            modifier = Modifier.align(Alignment.TopStart)
+                .padding(MaterialTheme.spacing.small)
+        ) {
+            errorMessage?.let { error ->
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        text = "${error.asString()} ..."
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun CharactersOverlay(
-    previewPath: PreviewPath,
+    laserPosition: Offset?,
+    ruler: DistancePath,
+    previewPath: DistancePath,
     mapCharacters: List<MapCharacter>,
     transformer: MapTransformer,
     hoveredCharacterId: Int?,
@@ -656,11 +731,20 @@ private fun CharactersOverlay(
                 }
             }
     ) {
+        drawMovementIndicator(
+            previewPath = ruler,
+            transformer = transformer,
+            textMeasurer = textMeasurer
+        )
+        laserPosition?.let {
+            drawLaser(it,transformer)
+        }
         selectedMapCharacter?.let {
             drawMovementIndicator(
                 previewPath = previewPath,
                 transformer = transformer,
-                textMeasurer = textMeasurer
+                textMeasurer = textMeasurer,
+                color = Color.Green
             )
         }
         drawCharacters(
@@ -713,15 +797,16 @@ fun DrawScope.drawReachableMovement(start: Offset, end: Offset, color: Color, st
 }
 
 fun DrawScope.drawMovementIndicator(
-    previewPath: PreviewPath,
+    previewPath: DistancePath,
     textMeasurer: TextMeasurer,
-    transformer: MapTransformer
+    transformer: MapTransformer,
+    color: Color = Color.Black
 ) = with(transformer) {
     if (previewPath.reachable.size <= 1) return@with
     previewPath.reachable.windowed(2).forEach { (startRaw, endRaw) ->
         val start = toMapOffset(startRaw)
         val end = toMapOffset(endRaw)
-        drawReachableMovement(start, end, Color.Green)
+        drawReachableMovement(start, end, color)
     }
     previewPath.unreachableStop?.let {
         val start = toMapOffset(previewPath.reachable.last())
@@ -737,6 +822,17 @@ fun DrawScope.drawMovementIndicator(
     drawText(
         textLayoutResult = textLayout,
         topLeft = toMapOffset(previewPath.unreachableStop ?: previewPath.reachable.last())+Offset(10f, 0f),
+    )
+}
+
+fun DrawScope.drawLaser(
+    position: Offset,
+    transformer: MapTransformer
+) = with(transformer) {
+    drawCircle(
+        color = Color.Red,
+        radius = 6f,
+        center = toMapOffset(position)
     )
 }
 
@@ -914,6 +1010,33 @@ private fun CheckBoxText(
             checked = checked,
             onCheckedChange = onCheck,
             enabled = enabled
+        )
+    }
+}
+
+@Composable
+private fun SwitchText(
+    text: String,
+    checked: Boolean,
+    onCheck: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheck,
+            enabled = enabled,
+            modifier = Modifier.padding(end = MaterialTheme.spacing.small)
+        )
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.primary.copy(
+                if (enabled) 1f else 0.4f
+            )
         )
     }
 }
