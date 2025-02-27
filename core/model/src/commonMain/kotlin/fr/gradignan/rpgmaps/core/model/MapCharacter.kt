@@ -1,16 +1,6 @@
 package fr.gradignan.rpgmaps.core.model
 
-interface Character
-
-data class DataCharacter(
-    val owner: String?,
-    val name: String,
-    val speed: Float,
-    val id: Int,
-    val color: String
-): Character
-
-data class MapCharacter(
+/*data class MapCharacter(
     val owner: String,
     val name: String,
     val speed: Float,
@@ -21,4 +11,4 @@ data class MapCharacter(
     val characterId: Int,
     val x: Int,
     val y: Int
-): Character
+): Character*/

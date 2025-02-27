@@ -86,12 +86,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.touchlab.kermit.Logger
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import fr.gradignan.rpgmaps.core.common.format
 import fr.gradignan.rpgmaps.core.model.Board
-import fr.gradignan.rpgmaps.core.model.Character
+import fr.gradignan.rpgmaps.core.model.DataCharacter
+import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.ui.error.UiText
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
@@ -144,7 +144,10 @@ fun GameScreen(
                 contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxSize()
             ) {
-                Text(state.error.toString())
+                Text(
+                    text = state.error.asString(),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
         is GameState.Game -> {
@@ -205,9 +208,9 @@ fun GameContent(
             imageUrl = gameState.imageUrl,
             previewPath = gameState.previewPath,
             hoveredCharacterId = gameState.hoveredCharacterId,
-            selectedCharacter = gameState.selectedCharacter,
+            selectedMapCharacter = gameState.selectedMapCharacter,
             pings = gameState.pings,
-            characters = gameState.characters,
+            mapCharacters = gameState.mapCharacters,
             errorMessage = gameState.error,
             onMapClick = onMapClick,
             onPointerMove = onPointerMove,
@@ -221,7 +224,8 @@ fun GameContent(
                 selectedBoard = gameState.selectedBoard,
                 boards = gameState.boards,
                 selectedCharacter = gameState.selectedChar,
-                characters = gameState.characters,
+                availableCharacters = gameState.availableCharacters,
+                mapCharacters = gameState.mapCharacters,
                 onBoardSubmit = onBoardSubmit,
                 onCharacterSelect = onCharacterSelect,
                 onCharacterSubmit = onCharacterSubmit,
@@ -241,7 +245,8 @@ fun GmToolBox(
     selectedBoard: Board?,
     boards: List<Board>,
     selectedCharacter: String?,
-    characters: List<Character>,
+    availableCharacters: List<DataCharacter>,
+    mapCharacters: List<MapCharacter>,
     isGmChecked: Boolean,
     onBoardSelect: (String) -> Unit,
     onBoardSubmit: () -> Unit,
@@ -279,7 +284,7 @@ fun GmToolBox(
         }
         StringSelector(
             selectedOptions = selectedCharacter,
-            options = characters.map { it.name },
+            options = availableCharacters.map { it.name },
             placeHolder = "Choose a character",
             onOptionSelect = onCharacterSelect,
         )
@@ -291,7 +296,7 @@ fun GmToolBox(
             Text("Add")
         }
         ReorderableList(
-            items = characters.mapIndexed { index, item -> Item(index, item.name, item.cmId) },
+            items = mapCharacters.mapIndexed { index, item -> Item(index, item.name, item.cmId) },
             onDelete = onDelete,
             onChangeInitiative = onChangeInitiative,
             modifier = Modifier
@@ -417,9 +422,9 @@ private fun MapContainer(
     imageUrl: String?,
     previewPath: PreviewPath,
     hoveredCharacterId: Int?,
-    selectedCharacter: Character?,
+    selectedMapCharacter: MapCharacter?,
     pings: List<MapEffect.Ping>,
-    characters: List<Character>,
+    mapCharacters: List<MapCharacter>,
     errorMessage: UiText?,
     onMapClick: (Offset) -> Unit,
     onPointerMove: (Offset) -> Unit,
@@ -440,9 +445,9 @@ private fun MapContainer(
                 imageUrl = imageUrl,
                 previewPath = previewPath,
                 mapTransformState = mapTransformState,
-                characters = characters,
+                mapCharacters = mapCharacters,
                 hoveredCharacterId = hoveredCharacterId,
-                selectedCharacter = selectedCharacter,
+                selectedMapCharacter = selectedMapCharacter,
                 pings = pings,
                 onMapClick = onMapClick,
                 onPointerMove = onPointerMove,
@@ -537,9 +542,9 @@ private fun MapContent(
     imageUrl: String?,
     previewPath: PreviewPath,
     mapTransformState: MapTransformState,
-    characters: List<Character>,
+    mapCharacters: List<MapCharacter>,
     hoveredCharacterId: Int?,
-    selectedCharacter: Character?,
+    selectedMapCharacter: MapCharacter?,
     pings: List<MapEffect.Ping>,
     onMapClick: (Offset) -> Unit,
     onPointerMove: (Offset) -> Unit,
@@ -580,10 +585,10 @@ private fun MapContent(
                 )
                 CharactersOverlay(
                     previewPath = previewPath,
-                    characters = characters,
+                    mapCharacters = mapCharacters,
                     transformer = transformer,
                     hoveredCharacterId = hoveredCharacterId,
-                    selectedCharacter = selectedCharacter,
+                    selectedMapCharacter = selectedMapCharacter,
                     onMapClick = onMapClick,
                     onDoubleClick = onDoubleClick,
                     onPointerMove = onPointerMove,
@@ -605,10 +610,10 @@ private fun MapContent(
 @Composable
 private fun CharactersOverlay(
     previewPath: PreviewPath,
-    characters: List<Character>,
+    mapCharacters: List<MapCharacter>,
     transformer: MapTransformer,
     hoveredCharacterId: Int?,
-    selectedCharacter: Character?,
+    selectedMapCharacter: MapCharacter?,
     onMapClick: (Offset) -> Unit,
     onDoubleClick: () -> Unit,
     onPointerMove: (Offset) -> Unit,
@@ -639,7 +644,7 @@ private fun CharactersOverlay(
                 }
             }
     ) {
-        selectedCharacter?.let {
+        selectedMapCharacter?.let {
             drawMovementIndicator(
                 previewPath = previewPath,
                 transformer = transformer,
@@ -647,8 +652,8 @@ private fun CharactersOverlay(
             )
         }
         drawCharacters(
-            characters = characters,
-            selectedCharacter = selectedCharacter,
+            mapCharacters = mapCharacters,
+            selectedMapCharacter = selectedMapCharacter,
             hoveredCharacterId = hoveredCharacterId,
             mapTransformer = transformer,
             textMeasurer = textMeasurer
@@ -927,16 +932,16 @@ fun Offset.getDistanceTo(target: Offset): Float {
 }
 
 private fun DrawScope.drawCharacters(
-    characters: List<Character>,
-    selectedCharacter: Character?,
+    mapCharacters: List<MapCharacter>,
+    selectedMapCharacter: MapCharacter?,
     hoveredCharacterId: Int?,
     mapTransformer: MapTransformer,
     textMeasurer: TextMeasurer
 ) {
     with(mapTransformer) {
-        characters.forEach { character ->
+        mapCharacters.forEach { character ->
             val center = toMapOffset(character.x, character.y)
-            val radius = toMapOffset(if (character == selectedCharacter) SELECTED_CHARACTER_RADIUS else CHARACTER_RADIUS)
+            val radius = toMapOffset(if (character == selectedMapCharacter) SELECTED_CHARACTER_RADIUS else CHARACTER_RADIUS)
             drawCircle(
                 color = character.color.toColor(),
                 radius = radius,

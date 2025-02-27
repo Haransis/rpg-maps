@@ -1,17 +1,17 @@
 package fr.gradignan.rpgmaps.core.data
 
+import fr.gradignan.rpgmaps.core.model.DataCharacter
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.EmptyResult
-import fr.gradignan.rpgmaps.core.model.map
 import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
+import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
 import fr.gradignan.rpgmaps.core.model.Result
 import fr.gradignan.rpgmaps.core.network.WebSocketClient
-import fr.gradignan.rpgmaps.core.network.model.Payload
-import fr.gradignan.rpgmaps.core.network.model.ServerMessage
-import fr.gradignan.rpgmaps.core.network.model.toMapAction
+import fr.gradignan.rpgmaps.core.network.model.NetworkCharacter
+import fr.gradignan.rpgmaps.core.network.model.toAddCharacter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.launch
 
 class DefaultMapActionRepository(
     private val webSocketClient: WebSocketClient,
@@ -51,4 +50,12 @@ class DefaultMapActionRepository(
 
     override suspend fun sendLoadMap(loadMap: MapUpdate.LoadMap): EmptyResult<DataError> =
         webSocketClient.sendMessage(loadMap)
+
+    override suspend fun sendAddCharacter(
+        characterId: Int,
+        owner: String,
+        order: List<Int>
+    ): EmptyResult<DataError> = webSocketClient.sendMessage(MapUpdate.AddCharacter(
+        NetworkCharacter(owner = owner, characterId = characterId).toAddCharacter(), order
+    ))
 }

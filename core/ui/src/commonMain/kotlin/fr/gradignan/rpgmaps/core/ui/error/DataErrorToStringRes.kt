@@ -11,6 +11,7 @@ import rpg_maps.core.ui.generated.resources.error_no_internet
 import rpg_maps.core.ui.generated.resources.error_not_found
 import rpg_maps.core.ui.generated.resources.error_serialization
 import rpg_maps.core.ui.generated.resources.error_unauthorized
+import rpg_maps.core.ui.generated.resources.error_closed
 import rpg_maps.core.ui.generated.resources.error_websocket_unknown
 import rpg_maps.core.ui.generated.resources.error_wrong_credentials
 
@@ -28,6 +29,7 @@ fun DataError.toUiText(): UiText {
         DataError.WebSocket.UNKNOWN -> Res.string.error_websocket_unknown
         DataError.Http.WRONG_CREDENTIALS -> Res.string.error_wrong_credentials
         DataError.WebSocket.SERIALIZATION -> Res.string.error_serialization
+        DataError.Http.CLOSED -> Res.string.error_closed
     }
 
     return UiText.StringResourceId(stringRes)

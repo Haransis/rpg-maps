@@ -2,6 +2,7 @@ package fr.gradignan.rpgmaps.core.model
 
 sealed interface DataError: Error {
     enum class Http: DataError {
+        CLOSED,
         NO_INTERNET,
         NOT_FOUND,
         SERIALIZATION,

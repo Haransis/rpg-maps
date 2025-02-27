@@ -21,6 +21,14 @@ sealed class Payload {
     @Serializable
     data class ServerLoadMap(@SerialName("map_id") val id: Int?, val map: String) : Payload()
 
+    @SerialName("AddChar")
+    @Serializable
+    data class ServerAddCharacterInput(val character: NetworkCharacter, val order: List<Int>) : Payload()
+
+    @SerialName("NewChar")
+    @Serializable
+    data class ServerAddCharacterOutput(val character: NetworkCharacter) : Payload()
+
     @SerialName("Move")
     @Serializable
     data class ServerMove(val name: String, val x: Int, val y: Int, val owner: String, val id: Int) : Payload()
@@ -52,6 +60,8 @@ fun Payload.toMapAction(): MapAction =
         is Payload.ServerNext -> MapUpdate.Next(id)
         is Payload.ServerPing -> MapEffect.Ping(x.toInt(), y.toInt())
         is Payload.ServerGMGetMap -> MapUpdate.GMGetMap(characters.toExternal())
+        is Payload.ServerAddCharacterInput -> throw IllegalStateException("not handled")
+        is Payload.ServerAddCharacterOutput -> MapUpdate.AddCharacter(character.toExternal(), emptyList())
     }
 
 fun MapAction.toServerMessage(): ServerMessage =
@@ -64,7 +74,7 @@ fun MapAction.toServerMessage(): ServerMessage =
             payload = Payload.ServerConnect(user))
         is MapUpdate.Initiate -> ServerMessage(
             action = "Initiate",
-            payload = Payload.ServerInitiate(characters.toNetwork()))
+            payload = Payload.ServerInitiate(mapCharacters.toNetwork()))
         is MapUpdate.LoadMap -> ServerMessage(
             action = "LoadMap",
             payload = Payload.ServerLoadMap(id, map))
@@ -79,5 +89,8 @@ fun MapAction.toServerMessage(): ServerMessage =
             payload = Payload.ServerNext(id))
         is MapUpdate.GMGetMap -> ServerMessage(
             action = "GMGetMap",
-            payload = Payload.ServerGMGetMap(characters.toNetwork()))
+            payload = Payload.ServerGMGetMap(mapCharacters.toNetwork()))
+        is MapUpdate.AddCharacter -> ServerMessage(
+            action = "AddChar",
+            payload = Payload.ServerAddCharacterInput(character.toNetwork(), order))
     }

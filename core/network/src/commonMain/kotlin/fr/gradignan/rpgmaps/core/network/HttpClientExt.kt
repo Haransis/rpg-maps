@@ -5,6 +5,7 @@ import fr.gradignan.rpgmaps.core.model.Result
 import io.ktor.client.call.NoTransformationFoundException
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
+import io.ktor.serialization.JsonConvertException
 import io.ktor.util.network.UnresolvedAddressException
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.ensureActive
@@ -32,6 +33,10 @@ suspend inline fun <reified T> responseToResult(
                 Result.Success(response.body<T>())
             } catch (e: NoTransformationFoundException) {
                 Result.Error(DataError.Http.SERIALIZATION)
+            } catch (e: JsonConvertException) {
+                Result.Error(DataError.Http.SERIALIZATION)
+            } catch (e: Exception) {
+                Result.Error(DataError.Http.UNKNOWN)
             }
         }
         401 -> Result.Error(DataError.Http.UNAUTHORIZED)

@@ -27,10 +27,11 @@ data class ServerMessage(
 
             val payload: Payload = when (action) {
                 "Connect" -> decoder.json.decodeFromJsonElement(Payload.ServerConnect.serializer(), jsonObject)
-                "LoadMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerLoadMap.serializer(), jsonObject)
-                "Initiate"   -> decoder.json.decodeFromJsonElement(Payload.ServerInitiate.serializer(), jsonObject)
                 "GMGetMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerGMGetMap.serializer(), jsonObject)
+                "Initiate"   -> decoder.json.decodeFromJsonElement(Payload.ServerInitiate.serializer(), jsonObject)
+                "LoadMap"   -> decoder.json.decodeFromJsonElement(Payload.ServerLoadMap.serializer(), jsonObject)
                 "Move"   -> decoder.json.decodeFromJsonElement(Payload.ServerMove.serializer(), jsonObject)
+                "NewChar"   -> decoder.json.decodeFromJsonElement(Payload.ServerAddCharacterOutput.serializer(), jsonObject)
                 "NewTurn"   -> decoder.json.decodeFromJsonElement(Payload.ServerNewTurn.serializer(), jsonObject)
                 "Next"   -> decoder.json.decodeFromJsonElement(Payload.ServerNext.serializer(), jsonObject)
                 "Ping"   -> decoder.json.decodeFromJsonElement(Payload.ServerPing.serializer(), jsonObject)
@@ -69,10 +70,14 @@ data class ServerMessage(
                         put("x", JsonPrimitive(payload.x))
                         put("y", JsonPrimitive(payload.y))
                     }
-
                     is Payload.ServerGMGetMap -> {
                         put("characters", encoder.json.encodeToJsonElement(Payload.ServerGMGetMap.serializer(), payload))
                     }
+                    is Payload.ServerAddCharacterInput -> {
+                        put("character", encoder.json.encodeToJsonElement(payload.character))
+                        put("order", encoder.json.encodeToJsonElement(payload.order))
+                    }
+                    is Payload.ServerAddCharacterOutput -> throw IllegalStateException("not handled")
                 }
             }
             encoder.encodeJsonElement(jsonObject)

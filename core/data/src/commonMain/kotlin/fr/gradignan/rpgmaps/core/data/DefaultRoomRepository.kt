@@ -4,6 +4,7 @@ import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.Result
 import fr.gradignan.rpgmaps.core.model.Room
 import fr.gradignan.rpgmaps.core.model.Board
+import fr.gradignan.rpgmaps.core.model.DataCharacter
 import fr.gradignan.rpgmaps.core.model.RoomRepository
 import fr.gradignan.rpgmaps.core.model.map
 import fr.gradignan.rpgmaps.core.network.NetworkHttpClient
@@ -15,4 +16,7 @@ class DefaultRoomRepository(private val client: NetworkHttpClient): RoomReposito
 
     override suspend fun getBoards(): Result<List<Board>, DataError.Http> =
         client.getBoards().map { it.toExternal() }
+
+    override suspend fun getAllCharacters(): Result<List<DataCharacter>, DataError.Http> =
+        client.getAllCharacters().map { it.toExternal() }
 }

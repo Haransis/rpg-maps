@@ -24,6 +24,7 @@ import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
@@ -102,19 +103,14 @@ class KtorWebSocketClient(
                     val ws = session
                     if (ws == null || !ws.isActive) {
                         Logger.e("session closed unexpectedly")
-                        emit(Result.Error(DataError.WebSocket.UNKNOWN))
+                        throw IllegalStateException("session closed unexpectedly")
                     } else {
-                        try {
-                            for (frame in ws.incoming) {
-                                if (frame is Frame.Text) {
-                                    val jsonString = frame.readText()
-                                    emit(processIncomingMessage(jsonString))
-                                }
+                        for (frame in ws.incoming) {
+                            if (frame is Frame.Text) {
+                                val jsonString = frame.readText()
+                                Logger.d("jsonString: $jsonString")
+                                emit(processIncomingMessage(jsonString))
                             }
-                        } catch (e: Exception) {
-                            coroutineContext.ensureActive()
-                            Logger.e("$e")
-                            emit(Result.Error(DataError.WebSocket.UNKNOWN))
                         }
                     }
                 }
@@ -122,6 +118,15 @@ class KtorWebSocketClient(
             }
     }
         .map(::toMapActionResult)
+        .catch { cause ->
+            when (cause) {
+                is IllegalStateException -> emit(Result.Error(DataError.Http.CLOSED))
+                else -> {
+                    Logger.e("$cause")
+                    emit(Result.Error(DataError.Http.UNKNOWN))
+                }
+            }
+        }
         .onCompletion { close() }
 
     private suspend fun close() {

@@ -5,8 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.common.updateIfIs
-import fr.gradignan.rpgmaps.core.model.Board
-import fr.gradignan.rpgmaps.core.model.Character
+import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapEffect
@@ -27,6 +26,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.jetbrains.skia.Data
 import kotlin.Float.Companion.POSITIVE_INFINITY
 
 class GameViewModel(
@@ -69,6 +69,21 @@ class GameViewModel(
             }
     }
 
+    private fun fetchAllCharacters() = viewModelScope.launch {
+        roomRepository.getAllCharacters()
+            .onSuccess { characters ->
+                _gameState.updateIfIs<GameState.Game> { currentState ->
+                    currentState.copy(availableCharacters = characters)
+                }
+            }
+            .onError { error ->
+                _gameState.updateIfIs<GameState.Game> {
+                    Logger.e("Error: $error")
+                    it.copy(error = error.toUiText())
+                }
+            }
+    }
+
     private fun handleNewPing(ping: MapEffect.Ping) {
         _gameState.updateIfIs<GameState.Game> { state ->
             state.copy(
@@ -87,9 +102,10 @@ class GameViewModel(
 
     private fun handleMapUpdateError(error: DataError) {
         _gameState.update {
-            when (it) {
-                is GameState.Game -> it.copy(error = error.toUiText())
-                else -> GameState.Error(error.toUiText())
+            if (it !is GameState.Game || error is DataError.Http) {
+                GameState.Error(error.toUiText())
+            } else {
+                it.copy(error = error.toUiText())
             }
         }
     }
@@ -99,7 +115,10 @@ class GameViewModel(
             when (it) {
                 is GameState.Game -> it.update(mapUpdate)
                 else -> {
-                    if (isAdmin) fetchBoards()
+                    if (isAdmin) {
+                        fetchBoards()
+                        fetchAllCharacters()
+                    }
                     GameState.Game(
                         playerName = username,
                         isAdmin = isAdmin,
@@ -113,28 +132,28 @@ class GameViewModel(
         when(mapUpdate) {
             is MapUpdate.Connect -> this.copy(logs = logs + "- ${mapUpdate.user} connected")
             is MapUpdate.GMGetMap -> if (isAdmin) this.copy(
-                characters = mapUpdate.characters
+                mapCharacters = mapUpdate.mapCharacters
             ) else this
             is MapUpdate.Initiate -> this.copy(
                 logs = logs + "- Starting game",
-                characters = mapUpdate.characters
+                mapCharacters = mapUpdate.mapCharacters
             )
             is MapUpdate.LoadMap -> this.copy(
                 logs = logs + "- Loading map: ${mapUpdate.map.substringAfterLast("/").substringBeforeLast(".")}",
                 imageUrl = mapUpdate.map
             )
             is MapUpdate.Move -> {
-                val updatedCharacters = this.characters.toMutableList().apply {
+                val updatedCharacters = this.mapCharacters.toMutableList().apply {
                     this.indexOfFirst { it.cmId == mapUpdate.id }.takeIf { it != -1 }?.let { index ->
                         val updatedCharacter = this[index].copy(x = mapUpdate.x, y = mapUpdate.y)
                         set(index, updatedCharacter)
                     }
                 }
 
-                var newState = this.copy(characters = updatedCharacters)
+                var newState = this.copy(mapCharacters = updatedCharacters)
                 if (mapUpdate.owner == playerName) {
                     newState = newState.copy(
-                        playingCharacter = playingCharacter?.copy(speed = playingCharacter.speed - previewPath.totalDistance)
+                        playingMapCharacter = playingMapCharacter?.copy(speed = playingMapCharacter.speed - previewPath.totalDistance)
                     )
                     newState = newState.deselectCharacter()
                 }
@@ -142,16 +161,22 @@ class GameViewModel(
             }
             MapUpdate.NewTurn -> this.copy(logs = logs + "- New Turn")
             is MapUpdate.Next -> {
-                val playingCharacter = characters.find { it.cmId == mapUpdate.id }
+                val playingCharacter = mapCharacters.find { it.cmId == mapUpdate.id }
                 if (playingCharacter != null) {
                     this.copy(
                         logs = logs + "- ${playingCharacter.name} is playing",
                         isPlayerTurn = playingCharacter.owner == playerName,
-                        playingCharacter = playingCharacter,
+                        playingMapCharacter = playingCharacter,
                         isGmChecked = false,
                         isSprintChecked = false,
                     )
                 } else this
+            }
+            is MapUpdate.AddCharacter -> {
+                this.copy(
+                    logs = logs + "- ${mapUpdate.character.name} added",
+                    mapCharacters = mapCharacters + mapUpdate.character
+                )
             }
         }
 
@@ -159,7 +184,7 @@ class GameViewModel(
         _gameState.updateIfIs<GameState.Game> { it.deselectCharacter() }
         viewModelScope.launch {
             mapActionRepository.endTurn(
-                (_gameState.value as? GameState.Game)?.playingCharacter?.cmId ?: -1
+                (_gameState.value as? GameState.Game)?.playingMapCharacter?.cmId ?: -1
             ).onError { handleMapUpdateError(it) }
         }
     }
@@ -172,12 +197,12 @@ class GameViewModel(
 
     fun onSprintCheck(checked: Boolean) {
         _gameState.updateIfIs<GameState.Game> { state ->
-            if (state.playingCharacter == null) return@updateIfIs state
-            val baseSpeed = state.characters.firstOrNull { it.cmId == state.playingCharacter.cmId }?.speed ?: 0f
-            val updatedSpeed = (if (checked) baseSpeed + state.playingCharacter.speed
-                else state.playingCharacter.speed - baseSpeed)
+            if (state.playingMapCharacter == null) return@updateIfIs state
+            val baseSpeed = state.mapCharacters.firstOrNull { it.cmId == state.playingMapCharacter.cmId }?.speed ?: 0f
+            val updatedSpeed = (if (checked) baseSpeed + state.playingMapCharacter.speed
+                else state.playingMapCharacter.speed - baseSpeed)
             state.copy(
-                playingCharacter = state.playingCharacter.copy(speed = updatedSpeed),
+                playingMapCharacter = state.playingMapCharacter.copy(speed = updatedSpeed),
                 isSprintChecked = checked
             ).deselectCharacter()
         }
@@ -189,26 +214,26 @@ class GameViewModel(
 
             when {
                 clickedCharacter != null -> selectCharacter(currentState, clickedCharacter)
-                currentState.selectedCharacter?.owner == currentState.playerName || currentState.isGmChecked -> currentState.appendPath(point)
+                currentState.selectedMapCharacter?.owner == currentState.playerName || currentState.isGmChecked -> currentState.appendPath(point)
                 else -> currentState.deselectCharacter()
             }
         }
     }
 
-    private fun GameState.Game.findClickedCharacter(point: Offset): Character? {
-        return this.characters.firstOrNull { character ->
+    private fun GameState.Game.findClickedCharacter(point: Offset): MapCharacter? {
+        return this.mapCharacters.firstOrNull { character ->
             val center = Offset(character.x.toFloat(), character.y.toFloat())
             center.getDistanceTo(point) <= CHARACTER_RADIUS
         }
     }
 
-    private fun selectCharacter(state: GameState.Game, character: Character): GameState.Game {
+    private fun selectCharacter(state: GameState.Game, mapCharacter: MapCharacter): GameState.Game {
         if (
-            (character.owner == state.playerName && state.isPlayerTurn) || state.isGmChecked
+            (mapCharacter.owner == state.playerName && state.isPlayerTurn) || state.isGmChecked
             ) {
-            val characterPosition = Offset(character.x.toFloat(), character.y.toFloat())
+            val characterPosition = Offset(mapCharacter.x.toFloat(), mapCharacter.y.toFloat())
             return state.copy(
-                selectedCharacter = character,
+                selectedMapCharacter = mapCharacter,
                 previewPath = PreviewPath(
                     reachable = listOf(characterPosition, characterPosition),
                     unreachableStop = null,
@@ -216,7 +241,7 @@ class GameViewModel(
                 )
             )
         } else {
-            return state.copy(selectedCharacter = character)
+            return state.copy(selectedMapCharacter = mapCharacter)
         }
     }
 
@@ -224,7 +249,7 @@ class GameViewModel(
         if (previewPath.reachable.isEmpty()) return this
         val start = previewPath.reachable.first()
         val distance = start.getDistanceTo(end) / mapScale
-        val speed = playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
+        val speed = playingMapCharacter?.speed?.coerceAtLeast(0f) ?: 0f
         return if (distance > speed) this else copy(
             previewPath = previewPath.extendPath(end, distance)
         )
@@ -237,7 +262,7 @@ class GameViewModel(
         val start = reachablePath[reachablePath.lastIndex - 1]
         val previousDistance = reachablePath.dropLast(1).totalDistance() / mapScale
         val newSegmentDistance = start.getDistanceTo(end) / mapScale
-        val speed = if (isGmChecked) POSITIVE_INFINITY else this.playingCharacter?.speed?.coerceAtLeast(0f) ?: 0f
+        val speed = if (isGmChecked) POSITIVE_INFINITY else this.playingMapCharacter?.speed?.coerceAtLeast(0f) ?: 0f
         val totalDistance = previousDistance + newSegmentDistance
 
         return copy(
@@ -270,7 +295,7 @@ class GameViewModel(
 
     private fun GameState.Game.deselectCharacter(): GameState.Game =
         this.copy(
-            selectedCharacter = null,
+            selectedMapCharacter = null,
             previewPath = PreviewPath()
         )
 
@@ -278,17 +303,17 @@ class GameViewModel(
         when(val state = _gameState.value) {
             is GameState.Game -> {
                 if (
-                    state.selectedCharacter == null
+                    state.selectedMapCharacter == null
                     || state.previewPath.reachable.isEmpty()
                     || state.previewPath.unreachableStop != null
                 ) return
                 viewModelScope.launch {
                     mapActionRepository.sendMove(MapUpdate.Move(
-                        name = state.selectedCharacter.name,
+                        name = state.selectedMapCharacter.name,
                         x = state.previewPath.reachable.last().x.toInt(),
                         y = state.previewPath.reachable.last().y.toInt(),
                         owner = state.playerName,
-                        id = state.selectedCharacter.cmId,
+                        id = state.selectedMapCharacter.cmId,
                     )).onError { handleMapUpdateError(it) }
                 }
             }
@@ -324,12 +349,23 @@ class GameViewModel(
             if (it.selectedBoard == null) return
             viewModelScope.launch {
                 mapActionRepository.sendLoadMap(MapUpdate.LoadMap(it.selectedBoard.id, it.selectedBoard.name))
+                    .onError { error -> handleMapUpdateError(error) }
             }
         }
     }
 
     fun onCharacterSubmit() {
-        TODO("not implemented")
+        (_gameState.value as? GameState.Game)?.let { state ->
+            val character = state.availableCharacters.firstOrNull { it.name == state.selectedChar }
+            if (character == null) return
+            viewModelScope.launch {
+                mapActionRepository.sendAddCharacter(
+                    characterId = character.id,
+                    owner = username,
+                    order = state.mapCharacters.map { it.cmId } + (state.mapCharacters.size+1)
+                ).onError { error -> handleMapUpdateError(error) }
+            }
+        }
     }
 
     fun onStartGame() {

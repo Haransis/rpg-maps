@@ -2,7 +2,8 @@ package fr.gradignan.rpgmaps.feature.game.model
 
 import androidx.compose.ui.geometry.Offset
 import fr.gradignan.rpgmaps.core.model.Board
-import fr.gradignan.rpgmaps.core.model.Character
+import fr.gradignan.rpgmaps.core.model.DataCharacter
+import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.ui.error.UiText
 
@@ -15,10 +16,11 @@ sealed class GameState {
         val selectedChar: String? = null,
         val mapScale: Float = 30f,
         val playerName: String = "",
-        val characters: List<Character> = emptyList(),
-        val selectedCharacter: Character? = null,
+        val availableCharacters: List<DataCharacter> = emptyList(),
+        val mapCharacters: List<MapCharacter> = emptyList(),
+        val selectedMapCharacter: MapCharacter? = null,
         val hoveredCharacterId: Int? = null,
-        val playingCharacter: Character? = null,
+        val playingMapCharacter: MapCharacter? = null,
         val pings: List<MapEffect.Ping> = emptyList(),
         val error: UiText? = null,
         val isPlayerTurn: Boolean = false,
