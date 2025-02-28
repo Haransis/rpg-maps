@@ -36,14 +36,17 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -51,16 +54,26 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -79,14 +92,17 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.touchlab.kermit.Logger
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import fr.gradignan.rpgmaps.core.common.format
@@ -98,6 +114,7 @@ import fr.gradignan.rpgmaps.core.ui.error.UiText
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
 import fr.gradignan.rpgmaps.feature.game.model.GameState
 import fr.gradignan.rpgmaps.feature.game.model.DistancePath
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -123,6 +140,7 @@ fun GameScreenRoute(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(
     onBack: () -> Unit,
@@ -152,27 +170,81 @@ fun GameScreen(
             }
         }
         is GameState.Game -> {
-            GameContent(
-                gameState = state,
-                onPingCheck = viewModel::onPingCheck,
-                onRulerCheck = viewModel::onRulerCheck,
-                onBack = onBack,
-                onBoardSubmit = viewModel::onBoardSubmit,
-                onCharacterSelect = viewModel::onCharacterSelect,
-                onCharacterSubmit = viewModel::onCharacterSubmit,
-                onDeleteChar = viewModel::onDeleteChar,
-                onChangeInitiative = viewModel::onChangeInitiative,
-                onStartGame = viewModel::onStartGame,
-                onBoardSelect = viewModel::onBoardSelect,
-                onEndTurn = viewModel::onEndTurn,
-                onGmCheck = viewModel::onGmCheck,
-                onSprintCheck = viewModel::onSprintCheck,
-                onMapClick = viewModel::onMapClick,
-                onPointerMove = viewModel::onPointerMove,
-                onDoubleClick = viewModel::onDoubleClick,
-                onUnselect = viewModel::onUnselect,
-                modifier = modifier,
-            )
+
+            val drawerState = rememberDrawerState(DrawerValue.Closed)
+            val scope = rememberCoroutineScope()
+
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl ) {
+                ModalNavigationDrawer(
+                    drawerState = drawerState,
+                    drawerContent = {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr ) {
+                            GmToolBox(
+                                selectedBoard = state.selectedBoard,
+                                boards = state.boards,
+                                selectedCharacter = state.selectedChar,
+                                availableCharacters = state.availableCharacters,
+                                onBoardSubmit = viewModel::onBoardSubmit,
+                                onCharacterSelect = viewModel::onCharacterSelect,
+                                onCharacterSubmit = viewModel::onCharacterSubmit,
+                                onStartGame = viewModel::onStartGame,
+                                onBoardSelect = viewModel::onBoardSelect,
+                                modifier = Modifier.fillMaxWidth(0.3f),
+                            )
+                        }
+                    }
+                ) {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr ) {
+                        Scaffold(
+                            topBar = {
+                                TopAppBar(
+                                    title = { Text("Game") },
+                                    navigationIcon = {
+                                        IconButton(onClick = onBack) {
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = "Back"
+                                            )
+                                        }
+                                    },
+                                    actions = {
+                                        if (state.isAdmin) {
+                                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                                Icon(
+                                                    Icons.Default.Menu,
+                                                    contentDescription = "Menu"
+                                                )
+                                            }
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor = MaterialTheme.colorScheme.inverseSurface,
+                                        titleContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                        actionIconContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                        navigationIconContentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                    )
+                                )
+                            }
+                        ) { innerPadding ->
+                            GameContent(
+                                gameState = state,
+                                onPingCheck = viewModel::onPingCheck,
+                                onRulerCheck = viewModel::onRulerCheck,
+                                onDeleteChar = viewModel::onDeleteChar,
+                                onChangeInitiative = viewModel::onChangeInitiative,
+                                onEndTurn = viewModel::onEndTurn,
+                                onGmCheck = viewModel::onGmCheck,
+                                onSprintCheck = viewModel::onSprintCheck,
+                                onMapClick = viewModel::onMapClick,
+                                onPointerMove = viewModel::onPointerMove,
+                                onDoubleClick = viewModel::onDoubleClick,
+                                onUnselect = viewModel::onUnselect,
+                                modifier = modifier.padding(innerPadding),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -182,14 +254,8 @@ fun GameContent(
     gameState: GameState.Game,
     onPingCheck: (Boolean) -> Unit,
     onRulerCheck: (Boolean) -> Unit,
-    onBoardSubmit: () -> Unit,
-    onCharacterSelect: (String) -> Unit,
-    onCharacterSubmit: () -> Unit,
     onDeleteChar: (Int) -> Unit,
     onChangeInitiative: (List<Int>) -> Unit,
-    onStartGame: () -> Unit,
-    onBack: () -> Unit,
-    onBoardSelect: (String) -> Unit,
     onEndTurn: () -> Unit,
     onGmCheck: (Boolean) -> Unit,
     onSprintCheck: (Boolean) -> Unit,
@@ -201,19 +267,23 @@ fun GameContent(
 ) {
     Row(modifier.fillMaxSize()) {
         MapSideBar(
+            mapCharacters = gameState.mapCharacters,
+            isAdmin = gameState.isAdmin,
             isPlayerTurn = gameState.isPlayerTurn,
             logs = gameState.logs,
-            isSprintChecked = gameState.isSprintChecked,
-            onBack = onBack,
+            onChangeInitiative = onChangeInitiative,
+            onDelete = onDeleteChar,
             onEndTurn = onEndTurn,
-            onSprintCheck = onSprintCheck,
-            modifier = Modifier.fillMaxWidth(0.2f)
+            modifier = Modifier.fillMaxWidth(0.2f),
         )
         MapContainer(
             laserPosition = gameState.laserPosition,
             ruler = gameState.ruler,
+            isAdmin = gameState.isAdmin,
             isPingChecked = gameState.isPingChecked,
             isRulerChecked = gameState.isRulerChecked,
+            isGmChecked = gameState.isGmChecked,
+            isSprintChecked = gameState.isSprintChecked,
             imageUrl = gameState.imageUrl,
             previewPath = gameState.previewPath,
             hoveredCharacterId = gameState.hoveredCharacterId,
@@ -226,28 +296,11 @@ fun GameContent(
             onMapClick = onMapClick,
             onPointerMove = onPointerMove,
             onDoubleClick = onDoubleClick,
+            onGmCheck = onGmCheck,
+            onSprintCheck = onSprintCheck,
             onUnselect = onUnselect,
-            modifier = Modifier.fillMaxHeight().weight(1f)
+            modifier = Modifier.fillMaxHeight().weight(1f),
         )
-        if (gameState.isAdmin) {
-            GmToolBox(
-                isGmChecked = gameState.isGmChecked,
-                selectedBoard = gameState.selectedBoard,
-                boards = gameState.boards,
-                selectedCharacter = gameState.selectedChar,
-                availableCharacters = gameState.availableCharacters,
-                mapCharacters = gameState.mapCharacters,
-                onBoardSubmit = onBoardSubmit,
-                onCharacterSelect = onCharacterSelect,
-                onCharacterSubmit = onCharacterSubmit,
-                onChangeInitiative = onChangeInitiative,
-                onDelete = onDeleteChar,
-                onStartGame = onStartGame,
-                onBoardSelect = onBoardSelect,
-                onGmCheck = onGmCheck,
-                modifier = Modifier.fillMaxWidth(0.3f),
-            )
-        }
     }
 }
 
@@ -257,74 +310,61 @@ fun GmToolBox(
     boards: List<Board>,
     selectedCharacter: String?,
     availableCharacters: List<DataCharacter>,
-    mapCharacters: List<MapCharacter>,
-    isGmChecked: Boolean,
     onBoardSelect: (String) -> Unit,
     onBoardSubmit: () -> Unit,
-    onChangeInitiative: (List<Int>) -> Unit,
     onCharacterSelect: (String) -> Unit,
     onCharacterSubmit: () -> Unit,
-    onDelete: (Int) -> Unit,
     onStartGame: () -> Unit,
-    onGmCheck: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column (
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
+    Surface(
+        modifier = modifier.fillMaxSize()
     ) {
-        Text("Gm Toolbox", style = MaterialTheme.typography.titleMedium)
-        SwitchText(
-            text = "Gm mode",
-            checked = isGmChecked,
-            onCheck = onGmCheck,
-            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
-        )
-        StringSelector(
-            selectedOptions = selectedBoard?.name,
-            options = boards.map { it.name },
-            placeHolder = "Choose a map",
-            onOptionSelect = onBoardSelect,
-        )
-        Button(
-            enabled = selectedBoard != null,
-            onClick = onBoardSubmit,
-            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
+        Column (
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
         ) {
-            Text("Load")
-        }
-        StringSelector(
-            selectedOptions = selectedCharacter,
-            options = availableCharacters.map { it.name },
-            placeHolder = "Choose a character",
-            onOptionSelect = onCharacterSelect,
-        )
-        Button(
-            enabled = selectedCharacter != null,
-            onClick = onCharacterSubmit,
-            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
-        ) {
-            Text("Add")
-        }
-        ReorderableList(
-            items = mapCharacters.mapIndexed { index, item -> Item(index, item.name, item.cmId) },
-            onDelete = onDelete,
-            onChangeInitiative = onChangeInitiative,
-            modifier = Modifier
-                .padding(bottom = MaterialTheme.spacing.medium)
-                .weight(1f, fill = false)
-        )
-        Button(onClick = onStartGame) {
-            Text("Start Game")
+            Text("Gm Toolbox", style = MaterialTheme.typography.titleMedium)
+            StringSelector(
+                selectedOptions = selectedBoard?.name,
+                options = boards.map { it.name },
+                placeHolder = "Choose a map",
+                onOptionSelect = onBoardSelect,
+                modifier = Modifier.padding(top = MaterialTheme.spacing.medium)
+            )
+            Button(
+                enabled = selectedBoard != null,
+                onClick = onBoardSubmit,
+                modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
+            ) {
+                Text("Load")
+            }
+            StringSelector(
+                selectedOptions = selectedCharacter,
+                options = availableCharacters.map { it.name },
+                placeHolder = "Choose a character",
+                onOptionSelect = onCharacterSelect,
+            )
+            Button(
+                enabled = selectedCharacter != null,
+                onClick = onCharacterSubmit,
+                modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
+            ) {
+                Text("Add")
+            }
+            Button(onClick = onStartGame) {
+                Text("Start Game")
+            }
         }
     }
 }
 
-data class ItemMove(val from: Int, val to: Int)
 data class Item(val index: Int, val name: String, val optionalId: Int? = null)
 
 @Composable
 fun ReorderableList(
+    isAdmin: Boolean,
     items: List<Item>,
     onChangeInitiative: (List<Int>) -> Unit,
     onDelete: (Int) -> Unit,
@@ -351,28 +391,36 @@ fun ReorderableList(
             ReorderableItem(reorderableLazyColumnState, item.index) {
                 Card(
                     onClick = {},
-                    modifier = Modifier.fillMaxSize().draggableHandle(
-                        onDragStopped = {
-                            if (list != items) {
-                                onChangeInitiative(list.map { it.index })
+                    modifier = Modifier.fillMaxSize()
+                        .then(if (isAdmin) Modifier.draggableHandle(
+                            onDragStopped = {
+                                if (list != items) {
+                                    onChangeInitiative(list.map { it.index })
+                                }
                             }
-                        }
-                    )
+                        ) else Modifier
+                        )
+
                 ){
                     Row(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.minimumInteractiveComponentSize(),
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DragHandle,
-                            contentDescription = "Reorder",
-                        )
+                        if (isAdmin) {
+                            Icon(
+                                imageVector = Icons.Rounded.DragHandle,
+                                contentDescription = "Reorder",
+                            )
+                        }
                         val label = if (item.optionalId == null) item.name else "${item.name} - ${item.optionalId}"
                         Text(label, Modifier.weight(1f))
-                        IconButton(
-                            onClick = { onDelete(item.index) }
-                        ) {
-                            Icon(Icons.Filled.Close, contentDescription = "Delete")
+                        if (isAdmin) {
+                            IconButton(
+                                onClick = { onDelete(item.index) }
+                            ) {
+                                Icon(Icons.Filled.Close, contentDescription = "Delete")
+                            }
                         }
                     }
                 }
@@ -440,6 +488,9 @@ fun StringSelector(
 
 @Composable
 private fun MapContainer(
+    isAdmin: Boolean,
+    isGmChecked: Boolean,
+    isSprintChecked: Boolean,
     laserPosition: Offset?,
     ruler: DistancePath,
     isPingChecked: Boolean,
@@ -457,6 +508,8 @@ private fun MapContainer(
     onPointerMove: (Offset) -> Unit,
     onDoubleClick: () -> Unit,
     onUnselect: () -> Unit,
+    onGmCheck: (Boolean) -> Unit,
+    onSprintCheck: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val mapTransformState = remember { MapTransformState() }
@@ -496,7 +549,12 @@ private fun MapContainer(
                         onMapClick = onMapClick,
                         onPointerMove = onPointerMove,
                         onDoubleClick = onDoubleClick,
-                        onUnselect = onUnselect
+                        onUnselect = onUnselect,
+                        isAdmin = isAdmin,
+                        isGmChecked = isGmChecked,
+                        isSprintChecked = isSprintChecked,
+                        onGmCheck = onGmCheck,
+                        onSprintCheck = onSprintCheck
                     )
                 }
                 is AsyncImagePainter.State.Error -> Text(text = "Error loading image", color = MaterialTheme.colorScheme.error)
@@ -515,20 +573,40 @@ private fun MapContainer(
 }
 
 @Composable
-private fun MapControls(
-    mapTransformState: MapTransformState,
+private fun MoveControls(
+    isAdmin: Boolean,
+    isGmChecked: Boolean,
     isPingChecked: Boolean,
     isRulerChecked: Boolean,
+    isSprintChecked: Boolean,
+    onGmCheck: (Boolean) -> Unit,
     onPingCheck: (Boolean) -> Unit,
     onRulerCheck: (Boolean) -> Unit,
+    onSprintCheck: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         color = MaterialTheme.colorScheme.inversePrimary,
         shape = MaterialTheme.shapes.small,
-        modifier = modifier.padding(16.dp)
+        modifier = modifier
     ) {
-        Column {
+        Row (
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+            modifier = Modifier.padding(horizontal = 16.dp),
+        ) {
+            if (isAdmin) {
+                SwitchText(
+                    text = "Gm mode",
+                    checked = isGmChecked,
+                    onCheck = onGmCheck,
+                    modifier = Modifier.padding(end = MaterialTheme.spacing.small)
+                )
+            }
+            CheckBoxText(
+                text = "Sprint",
+                checked = isSprintChecked,
+                onCheck = onSprintCheck
+            )
             CheckBoxText(
                 text = "Ping",
                 checked = isPingChecked,
@@ -539,17 +617,27 @@ private fun MapControls(
                 checked = isRulerChecked,
                 onCheck = onRulerCheck
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { mapTransformState.zoomIn() }) {
-                    Text("Zoom In")
-                }
-                Button(onClick = { mapTransformState.reset() }) {
-                    Text("Reset")
-                }
-                Button(onClick = { mapTransformState.zoomOut() }) {
-                    Text("Zoom Out")
-                }
-            }
+        }
+    }
+}
+
+@Composable
+private fun MapControls(
+    mapTransformState: MapTransformState,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+    ) {
+        Button(onClick = { mapTransformState.zoomIn() }) {
+            Text("Zoom In")
+        }
+        Button(onClick = { mapTransformState.reset() }) {
+            Text("Reset")
+        }
+        Button(onClick = { mapTransformState.zoomOut() }) {
+            Text("Zoom Out")
         }
     }
 }
@@ -587,6 +675,9 @@ data class MapTransformer(
 
 @Composable
 private fun MapContent(
+    isAdmin: Boolean,
+    isGmChecked: Boolean,
+    isSprintChecked: Boolean,
     laserPosition: Offset?,
     ruler: DistancePath,
     isPingChecked: Boolean,
@@ -600,6 +691,8 @@ private fun MapContent(
     hoveredCharacterId: Int?,
     selectedMapCharacter: MapCharacter?,
     pings: List<MapEffect.Ping>,
+    onGmCheck: (Boolean) -> Unit,
+    onSprintCheck: (Boolean) -> Unit,
     onPingCheck: (Boolean) -> Unit,
     onRulerCheck: (Boolean) -> Unit,
     onMapClick: (Offset) -> Unit,
@@ -663,11 +756,19 @@ private fun MapContent(
                 modifier = Modifier.matchParentSize()
             )
         }
-        MapControls(
+        MoveControls(
+            isAdmin = isAdmin,
+            isGmChecked = isGmChecked,
+            isSprintChecked = isSprintChecked,
+            onSprintCheck = onSprintCheck,
+            onGmCheck = onGmCheck,
             isPingChecked = isPingChecked,
             isRulerChecked = isRulerChecked,
             onPingCheck = onPingCheck,
             onRulerCheck = onRulerCheck,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+        MapControls(
             mapTransformState = mapTransformState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
@@ -949,41 +1050,46 @@ data class MapTransformState(
 
 @Composable
 private fun MapSideBar(
+    isAdmin: Boolean,
+    mapCharacters: List<MapCharacter>,
+    onChangeInitiative: (List<Int>) -> Unit,
+    onDelete: (Int) -> Unit,
     isPlayerTurn: Boolean,
     logs: List<String>,
-    isSprintChecked: Boolean,
-    onBack: () -> Unit,
     onEndTurn: () -> Unit,
-    onSprintCheck: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
     ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-        }
-        Button(
-            onClick = onEndTurn,
-            enabled = isPlayerTurn
-        ) {
-            Text("End turn")
-        }
-        CheckBoxText(
-            text = "Sprint",
-            enabled = isPlayerTurn,
-            checked = isSprintChecked,
-            onCheck = onSprintCheck
+        Text("Characters:")
+        ReorderableList(
+            isAdmin = isAdmin,
+            items = mapCharacters.mapIndexed { index, item -> Item(index, item.name, item.cmId) },
+            onDelete = onDelete,
+            onChangeInitiative = onChangeInitiative,
+            modifier = Modifier
+                .padding(bottom = MaterialTheme.spacing.medium)
+                .fillMaxWidth()
+                .fillMaxHeight(0.5f)
         )
         Text("History:")
         LazyColumn(
             modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                 .padding(horizontal = MaterialTheme.spacing.small)
-                .fillMaxSize()
+                .fillMaxWidth()
+                .weight(1f)
         ) {
             items(logs.size) { index ->
                 Text(logs[index])
             }
+        }
+        Button(
+            onClick = onEndTurn,
+            enabled = isPlayerTurn,
+            modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
+        ) {
+            Text("End turn")
         }
     }
 }
@@ -1000,16 +1106,16 @@ private fun CheckBoxText(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
     ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheck,
+            enabled = enabled
+        )
         Text(
             text = text,
             color = MaterialTheme.colorScheme.primary.copy(
                 if (enabled) 1f else 0.4f
             )
-        )
-        Checkbox(
-            checked = checked,
-            onCheckedChange = onCheck,
-            enabled = enabled
         )
     }
 }
