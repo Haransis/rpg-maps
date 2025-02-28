@@ -112,8 +112,10 @@ import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.ui.error.UiText
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
+import fr.gradignan.rpgmaps.feature.game.model.CharItem
 import fr.gradignan.rpgmaps.feature.game.model.GameState
 import fr.gradignan.rpgmaps.feature.game.model.DistancePath
+import fr.gradignan.rpgmaps.feature.game.model.GmState
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
@@ -130,12 +132,14 @@ const val CHARACTER_RADIUS = 20
 @Composable
 fun GameScreenRoute(
     viewModel: GameViewModel,
+    gmViewModel: GmViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     GameScreen(
         onBack = onBack,
         viewModel = viewModel,
+        gmViewModel = gmViewModel,
         modifier = modifier
     )
 }
@@ -145,9 +149,11 @@ fun GameScreenRoute(
 fun GameScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: GameViewModel = koinViewModel<GameViewModel>()
+    viewModel: GameViewModel = koinViewModel<GameViewModel>(),
+    gmViewModel: GmViewModel = koinViewModel<GmViewModel>()
 ) {
     val gameState: GameState by viewModel.gameState.collectAsStateWithLifecycle()
+    val gmState: GmState by gmViewModel.gmState.collectAsStateWithLifecycle()
 
     when (val state = gameState) {
         GameState.Loading -> {
@@ -179,18 +185,23 @@ fun GameScreen(
                     drawerState = drawerState,
                     drawerContent = {
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr ) {
-                            GmToolBox(
-                                selectedBoard = state.selectedBoard,
-                                boards = state.boards,
-                                selectedCharacter = state.selectedChar,
-                                availableCharacters = state.availableCharacters,
-                                onBoardSubmit = viewModel::onBoardSubmit,
-                                onCharacterSelect = viewModel::onCharacterSelect,
-                                onCharacterSubmit = viewModel::onCharacterSubmit,
-                                onStartGame = viewModel::onStartGame,
-                                onBoardSelect = viewModel::onBoardSelect,
-                                modifier = Modifier.fillMaxWidth(0.3f),
-                            )
+                            when (val newState = gmState) {
+                                GmState.Loading -> CircularProgressIndicator()
+                                is GmState.Error -> Text(newState.error.asString())
+                                is GmState.Gm ->
+                                    GmToolBox(
+                                        selectedBoard = newState.selectedBoard,
+                                        boards = newState.boards,
+                                        selectedCharacter = newState.selectedChar,
+                                        availableCharacters = newState.availableCharacters,
+                                        onBoardSubmit = gmViewModel::onBoardSubmit,
+                                        onCharacterSelect = gmViewModel::onCharacterSelect,
+                                        onCharacterSubmit = gmViewModel::onCharacterSubmit,
+                                        onStartGame = gmViewModel::onStartGame,
+                                        onBoardSelect = gmViewModel::onBoardSelect,
+                                        modifier = Modifier.fillMaxWidth(0.3f),
+                                    )
+                            }
                         }
                     }
                 ) {
@@ -360,12 +371,10 @@ fun GmToolBox(
     }
 }
 
-data class Item(val index: Int, val name: String, val optionalId: Int? = null)
-
 @Composable
 fun ReorderableList(
     isAdmin: Boolean,
-    items: List<Item>,
+    items: List<CharItem>,
     onChangeInitiative: (List<Int>) -> Unit,
     onDelete: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -1065,7 +1074,7 @@ private fun MapSideBar(
         Text("Characters:")
         ReorderableList(
             isAdmin = isAdmin,
-            items = mapCharacters.mapIndexed { index, item -> Item(index, item.name, item.cmId) },
+            items = mapCharacters.mapIndexed { index, item -> CharItem(index, item.name, item.cmId) },
             onDelete = onDelete,
             onChangeInitiative = onChangeInitiative,
             modifier = Modifier

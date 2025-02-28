@@ -11,12 +11,12 @@ import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapEffect
 import fr.gradignan.rpgmaps.core.model.MapUpdate
 import fr.gradignan.rpgmaps.core.model.Result
-import fr.gradignan.rpgmaps.core.model.RoomRepository
 import fr.gradignan.rpgmaps.core.model.onError
-import fr.gradignan.rpgmaps.core.model.onSuccess
 import fr.gradignan.rpgmaps.core.ui.error.toUiText
 import fr.gradignan.rpgmaps.feature.game.model.GameState
 import fr.gradignan.rpgmaps.feature.game.model.DistancePath
+import fr.gradignan.rpgmaps.feature.game.model.MapState
+import fr.gradignan.rpgmaps.feature.game.model.StatusState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,11 +30,14 @@ import kotlin.Float.Companion.POSITIVE_INFINITY
 
 class GameViewModel(
     private val username: String,
-    private val roomId: Int,
     private val isAdmin: Boolean,
     private val mapActionRepository: MapActionRepository,
-    private val roomRepository: RoomRepository
 ): ViewModel() {
+    private val _statusState: MutableStateFlow<StatusState> = MutableStateFlow(StatusState())
+    val statusState: StateFlow<StatusState> = _statusState.asStateFlow()
+    private val _mapState: MutableStateFlow<MapState> = MutableStateFlow(MapState.Loading)
+    val mapState: StateFlow<MapState> = _mapState.asStateFlow()
+
     private val mapResultUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
     private val mapEffects: Flow<MapEffect> = mapActionRepository.getMapEffectsFlow()
     private val _gameState: MutableStateFlow<GameState> = MutableStateFlow(GameState.Loading)
@@ -51,36 +54,6 @@ class GameViewModel(
                 is MapEffect.Ping -> handleNewPing(effect)
             }
         }.launchIn(viewModelScope)
-    }
-
-    private fun fetchBoards() = viewModelScope.launch {
-        roomRepository.getBoards()
-            .onSuccess { boards ->
-                _gameState.updateIfIs<GameState.Game> { currentState ->
-                    currentState.copy(boards = boards)
-                }
-            }
-            .onError { error ->
-                _gameState.updateIfIs<GameState.Game> {
-                    Logger.e("Error: $error")
-                    it.copy(error = error.toUiText())
-                }
-            }
-    }
-
-    private fun fetchAllCharacters() = viewModelScope.launch {
-        roomRepository.getAllCharacters()
-            .onSuccess { characters ->
-                _gameState.updateIfIs<GameState.Game> { currentState ->
-                    currentState.copy(availableCharacters = characters)
-                }
-            }
-            .onError { error ->
-                _gameState.updateIfIs<GameState.Game> {
-                    Logger.e("Error: $error")
-                    it.copy(error = error.toUiText())
-                }
-            }
     }
 
     private fun handleNewPing(ping: MapEffect.Ping) {
@@ -114,10 +87,6 @@ class GameViewModel(
             when (it) {
                 is GameState.Game -> it.update(mapUpdate)
                 else -> {
-                    if (isAdmin) {
-                        fetchBoards()
-                        fetchAllCharacters()
-                    }
                     GameState.Game(
                         playerName = username,
                         isAdmin = isAdmin,
@@ -190,12 +159,6 @@ class GameViewModel(
             mapActionRepository.endTurn(
                 (_gameState.value as? GameState.Game)?.playingMapCharacter?.cmId ?: -1
             ).onError { handleMapUpdateError(it) }
-        }
-    }
-
-    fun onBoardSelect(board: String) {
-        _gameState.updateIfIs<GameState.Game> { currentState ->
-            currentState.copy(selectedBoard = currentState.boards.firstOrNull { it.name == board })
         }
     }
 
@@ -295,7 +258,6 @@ class GameViewModel(
         )
     }
 
-
     private fun DistancePath.extendPath(end: Offset, distance: Float) = DistancePath(
         reachable = reachable + end,
         unreachableStop = null,
@@ -367,43 +329,6 @@ class GameViewModel(
     fun onGmCheck(checked: Boolean) {
         _gameState.updateIfIs<GameState.Game> {
             it.copy(isGmChecked = checked)
-        }
-    }
-
-    fun onCharacterSelect(name: String) {
-        _gameState.updateIfIs<GameState.Game> {
-            it.copy(selectedChar = name)
-        }
-    }
-
-    fun onBoardSubmit() {
-        (_gameState.value as? GameState.Game)?.let {
-            if (it.selectedBoard == null) return
-            viewModelScope.launch {
-                mapActionRepository.sendLoadMap(MapUpdate.LoadMap(it.selectedBoard.id, it.selectedBoard.name))
-                    .onError { error -> handleMapUpdateError(error) }
-            }
-        }
-    }
-
-    fun onCharacterSubmit() {
-        (_gameState.value as? GameState.Game)?.let { state ->
-            val character = state.availableCharacters.firstOrNull { it.name == state.selectedChar }
-            if (character == null) return
-            viewModelScope.launch {
-                mapActionRepository.sendAddCharacter(
-                    characterId = character.id,
-                    owner = username,
-                    order = state.mapCharacters.map { it.cmId } + (state.mapCharacters.size+1)
-                ).onError { error -> handleMapUpdateError(error) }
-            }
-        }
-    }
-
-    fun onStartGame() {
-        viewModelScope.launch {
-            mapActionRepository.startGame()
-                .onError { error -> handleMapUpdateError(error) }
         }
     }
 
