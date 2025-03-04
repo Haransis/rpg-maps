@@ -36,7 +36,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -54,14 +53,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDrawerState
@@ -102,7 +99,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.touchlab.kermit.Logger
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import fr.gradignan.rpgmaps.core.common.format
@@ -110,12 +106,12 @@ import fr.gradignan.rpgmaps.core.model.Board
 import fr.gradignan.rpgmaps.core.model.DataCharacter
 import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.MapEffect
-import fr.gradignan.rpgmaps.core.ui.error.UiText
 import fr.gradignan.rpgmaps.core.ui.theme.spacing
 import fr.gradignan.rpgmaps.feature.game.model.CharItem
-import fr.gradignan.rpgmaps.feature.game.model.GameState
+import fr.gradignan.rpgmaps.feature.game.model.MapState
 import fr.gradignan.rpgmaps.feature.game.model.DistancePath
 import fr.gradignan.rpgmaps.feature.game.model.GmState
+import fr.gradignan.rpgmaps.feature.game.model.StatusState
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
@@ -152,11 +148,12 @@ fun GameScreen(
     viewModel: GameViewModel = koinViewModel<GameViewModel>(),
     gmViewModel: GmViewModel = koinViewModel<GmViewModel>()
 ) {
-    val gameState: GameState by viewModel.gameState.collectAsStateWithLifecycle()
+    val mapState: MapState by viewModel.mapState.collectAsStateWithLifecycle()
+    val statusState: StatusState by viewModel.statusState.collectAsStateWithLifecycle()
     val gmState: GmState by gmViewModel.gmState.collectAsStateWithLifecycle()
 
-    when (val state = gameState) {
-        GameState.Loading -> {
+    when (val state = mapState) {
+        MapState.Loading -> {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxSize()
@@ -164,7 +161,7 @@ fun GameScreen(
                 CircularProgressIndicator()
             }
         }
-        is GameState.Error -> {
+        is MapState.Error -> {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxSize()
@@ -175,7 +172,7 @@ fun GameScreen(
                 )
             }
         }
-        is GameState.Game -> {
+        is MapState.Game -> {
 
             val drawerState = rememberDrawerState(DrawerValue.Closed)
             val scope = rememberCoroutineScope()
@@ -238,7 +235,8 @@ fun GameScreen(
                             }
                         ) { innerPadding ->
                             GameContent(
-                                gameState = state,
+                                mapState = state,
+                                statusState = statusState,
                                 onPingCheck = viewModel::onPingCheck,
                                 onRulerCheck = viewModel::onRulerCheck,
                                 onDeleteChar = viewModel::onDeleteChar,
@@ -262,7 +260,8 @@ fun GameScreen(
 
 @Composable
 fun GameContent(
-    gameState: GameState.Game,
+    mapState: MapState.Game,
+    statusState: StatusState,
     onPingCheck: (Boolean) -> Unit,
     onRulerCheck: (Boolean) -> Unit,
     onDeleteChar: (Int) -> Unit,
@@ -278,30 +277,14 @@ fun GameContent(
 ) {
     Row(modifier.fillMaxSize()) {
         MapSideBar(
-            mapCharacters = gameState.mapCharacters,
-            isAdmin = gameState.isAdmin,
-            isPlayerTurn = gameState.isPlayerTurn,
-            logs = gameState.logs,
+            statusState = statusState,
             onChangeInitiative = onChangeInitiative,
             onDelete = onDeleteChar,
             onEndTurn = onEndTurn,
             modifier = Modifier.fillMaxWidth(0.2f),
         )
         MapContainer(
-            laserPosition = gameState.laserPosition,
-            ruler = gameState.ruler,
-            isAdmin = gameState.isAdmin,
-            isPingChecked = gameState.isPingChecked,
-            isRulerChecked = gameState.isRulerChecked,
-            isGmChecked = gameState.isGmChecked,
-            isSprintChecked = gameState.isSprintChecked,
-            imageUrl = gameState.imageUrl,
-            previewPath = gameState.previewPath,
-            hoveredCharacterId = gameState.hoveredCharacterId,
-            selectedMapCharacter = gameState.selectedMapCharacter,
-            pings = gameState.pings,
-            mapCharacters = gameState.mapCharacters,
-            errorMessage = gameState.error,
+            mapState = mapState,
             onPingCheck = onPingCheck,
             onRulerCheck = onRulerCheck,
             onMapClick = onMapClick,
@@ -497,20 +480,7 @@ fun StringSelector(
 
 @Composable
 private fun MapContainer(
-    isAdmin: Boolean,
-    isGmChecked: Boolean,
-    isSprintChecked: Boolean,
-    laserPosition: Offset?,
-    ruler: DistancePath,
-    isPingChecked: Boolean,
-    isRulerChecked: Boolean,
-    imageUrl: String?,
-    previewPath: DistancePath,
-    hoveredCharacterId: Int?,
-    selectedMapCharacter: MapCharacter?,
-    pings: List<MapEffect.Ping>,
-    mapCharacters: List<MapCharacter>,
-    errorMessage: UiText?,
+    mapState: MapState.Game,
     onPingCheck: (Boolean) -> Unit,
     onRulerCheck: (Boolean) -> Unit,
     onMapClick: (Offset) -> Unit,
@@ -529,9 +499,9 @@ private fun MapContainer(
             .clipToBounds(),
         contentAlignment = Alignment.Center
     ) {
-        if (imageUrl != null) {
+        if (mapState.imageUrl != null) {
             val painter = rememberAsyncImagePainter(
-                imageUrl, contentScale = ContentScale.Inside
+                mapState.imageUrl, contentScale = ContentScale.Inside
             )
             val painterState by painter.state.collectAsState()
 
@@ -540,28 +510,16 @@ private fun MapContainer(
                 is AsyncImagePainter.State.Loading -> CircularProgressIndicator()
                 is AsyncImagePainter.State.Success -> {
                     MapContent(
-                        ruler = ruler,
-                        laserPosition = laserPosition,
-                        isPingChecked = isPingChecked,
-                        isRulerChecked = isRulerChecked,
-                        errorMessage = errorMessage,
+                        mapState = mapState,
                         painter = painter,
                         painterState = state,
-                        previewPath = previewPath,
                         mapTransformState = mapTransformState,
-                        mapCharacters = mapCharacters,
-                        hoveredCharacterId = hoveredCharacterId,
-                        selectedMapCharacter = selectedMapCharacter,
-                        pings = pings,
                         onPingCheck = onPingCheck,
                         onRulerCheck = onRulerCheck,
                         onMapClick = onMapClick,
                         onPointerMove = onPointerMove,
                         onDoubleClick = onDoubleClick,
                         onUnselect = onUnselect,
-                        isAdmin = isAdmin,
-                        isGmChecked = isGmChecked,
-                        isSprintChecked = isSprintChecked,
                         onGmCheck = onGmCheck,
                         onSprintCheck = onSprintCheck
                     )
@@ -569,10 +527,10 @@ private fun MapContainer(
                 is AsyncImagePainter.State.Error -> Text(text = "Error loading image", color = MaterialTheme.colorScheme.error)
             }
         } else {
-            if (errorMessage != null) {
+            if (mapState.error != null) {
                 Text(
                     color = MaterialTheme.colorScheme.error,
-                    text = errorMessage.asString()
+                    text = mapState.error.asString()
                 )
             } else {
                 Text("Waiting for game master...")
@@ -684,22 +642,10 @@ data class MapTransformer(
 
 @Composable
 private fun MapContent(
-    isAdmin: Boolean,
-    isGmChecked: Boolean,
-    isSprintChecked: Boolean,
-    laserPosition: Offset?,
-    ruler: DistancePath,
-    isPingChecked: Boolean,
-    isRulerChecked: Boolean,
-    errorMessage: UiText?,
+    mapState: MapState.Game,
     painter: AsyncImagePainter,
     painterState: AsyncImagePainter.State.Success,
-    previewPath: DistancePath,
     mapTransformState: MapTransformState,
-    mapCharacters: List<MapCharacter>,
-    hoveredCharacterId: Int?,
-    selectedMapCharacter: MapCharacter?,
-    pings: List<MapEffect.Ping>,
     onGmCheck: (Boolean) -> Unit,
     onSprintCheck: (Boolean) -> Unit,
     onPingCheck: (Boolean) -> Unit,
@@ -720,8 +666,8 @@ private fun MapContent(
                 .height(IntrinsicSize.Min)
                 .pointerHoverIcon(
                     when {
-                        hoveredCharacterId != null -> PointerIcon.Hand
-                        isRulerChecked -> PointerIcon.Crosshair
+                        mapState.hoveredCharacterId != null -> PointerIcon.Hand
+                        mapState.isRulerChecked -> PointerIcon.Crosshair
                         else -> PointerIcon.Default
                     },
                     overrideDescendants = true
@@ -745,34 +691,34 @@ private fun MapContent(
                 modifier = Modifier.fillMaxSize()
             )
             CharactersOverlay(
-                laserPosition = laserPosition,
-                ruler = ruler,
-                previewPath = previewPath,
-                mapCharacters = mapCharacters,
+                laserPosition = mapState.laserPosition,
+                ruler = mapState.ruler,
+                previewPath = mapState.previewPath,
+                mapCharacters = mapState.mapCharacters,
                 transformer = transformer,
-                hoveredCharacterId = hoveredCharacterId,
-                selectedMapCharacter = selectedMapCharacter,
+                hoveredCharacterId = mapState.hoveredCharacterId,
+                selectedMapCharacter = mapState.selectedMapCharacter,
                 onMapClick = onMapClick,
                 onDoubleClick = onDoubleClick,
                 onPointerMove = onPointerMove,
                 onUnselect = onUnselect,
                 modifier = Modifier.matchParentSize()
-                    .pointerHoverIcon(if (hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
+                    .pointerHoverIcon(if (mapState.hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
             )
             AnimationsOverlay(
-                pings = pings,
+                pings = mapState.pings,
                 transformer = transformer,
                 modifier = Modifier.matchParentSize()
             )
         }
         MoveControls(
-            isAdmin = isAdmin,
-            isGmChecked = isGmChecked,
-            isSprintChecked = isSprintChecked,
+            isAdmin = mapState.isAdmin,
+            isGmChecked = mapState.isGmChecked,
+            isSprintChecked = mapState.isSprintChecked,
             onSprintCheck = onSprintCheck,
             onGmCheck = onGmCheck,
-            isPingChecked = isPingChecked,
-            isRulerChecked = isRulerChecked,
+            isPingChecked = mapState.isPingChecked,
+            isRulerChecked = mapState.isRulerChecked,
             onPingCheck = onPingCheck,
             onRulerCheck = onRulerCheck,
             modifier = Modifier.align(Alignment.TopCenter)
@@ -782,13 +728,13 @@ private fun MapContent(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
         AnimatedVisibility(
-            visible = errorMessage != null,
+            visible = mapState.error != null,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
             exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
             modifier = Modifier.align(Alignment.TopStart)
                 .padding(MaterialTheme.spacing.small)
         ) {
-            errorMessage?.let { error ->
+            mapState.error?.let { error ->
                 Surface(
                     shape = RoundedCornerShape(4.dp),
                     color = MaterialTheme.colorScheme.errorContainer
@@ -1059,12 +1005,9 @@ data class MapTransformState(
 
 @Composable
 private fun MapSideBar(
-    isAdmin: Boolean,
-    mapCharacters: List<MapCharacter>,
+    statusState: StatusState,
     onChangeInitiative: (List<Int>) -> Unit,
     onDelete: (Int) -> Unit,
-    isPlayerTurn: Boolean,
-    logs: List<String>,
     onEndTurn: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1073,8 +1016,8 @@ private fun MapSideBar(
     ) {
         Text("Characters:")
         ReorderableList(
-            isAdmin = isAdmin,
-            items = mapCharacters.mapIndexed { index, item -> CharItem(index, item.name, item.cmId) },
+            isAdmin = statusState.isAdmin,
+            items = statusState.characters,
             onDelete = onDelete,
             onChangeInitiative = onChangeInitiative,
             modifier = Modifier
@@ -1089,13 +1032,13 @@ private fun MapSideBar(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            items(logs.size) { index ->
-                Text(logs[index])
+            items(statusState.logs.size) { index ->
+                Text(statusState.logs[index])
             }
         }
         Button(
             onClick = onEndTurn,
-            enabled = isPlayerTurn,
+            enabled = statusState.isPlayerTurn,
             modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
         ) {
             Text("End turn")

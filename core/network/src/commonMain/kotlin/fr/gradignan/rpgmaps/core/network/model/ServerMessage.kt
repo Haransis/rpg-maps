@@ -1,5 +1,6 @@
 package fr.gradignan.rpgmaps.core.network.model
 
+import co.touchlab.kermit.Logger
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -21,6 +22,7 @@ data class ServerMessage(
             require(decoder is JsonDecoder) { "This serializer only supports JSON" }
             val jsonElement = decoder.decodeJsonElement()
             val jsonObject = jsonElement.jsonObject
+            Logger.d("jsonObject: $jsonObject")
 
             val action = jsonObject["action"]?.jsonPrimitive?.content
                 ?: throw SerializationException("Missing 'action' field")
