@@ -7,7 +7,8 @@ import fr.gradignan.rpgmaps.core.network.BuildKonfig
 import fr.gradignan.rpgmaps.core.network.NetworkHttpClient
 import fr.gradignan.rpgmaps.core.network.model.NetworkAuth
 import fr.gradignan.rpgmaps.core.network.model.NetworkBoard
-import fr.gradignan.rpgmaps.core.network.model.NetworkCharacter
+import fr.gradignan.rpgmaps.core.network.model.NetworkDataCharacter
+import fr.gradignan.rpgmaps.core.network.model.NetworkMapCharacter
 import fr.gradignan.rpgmaps.core.network.model.NetworkRoom
 import fr.gradignan.rpgmaps.core.network.model.NetworkToken
 import fr.gradignan.rpgmaps.core.network.safeCall
@@ -44,7 +45,7 @@ class KtorHttpClient(private val client: HttpClient): NetworkHttpClient {
         client.get("${BuildKonfig.baseUrl}/maps/get-maps")
     }
 
-    override suspend fun getAllCharacters(): Result<List<NetworkCharacter>, DataError.Http> = safeCall {
+    override suspend fun getAllCharacters(): Result<List<NetworkDataCharacter>, DataError.Http> = safeCall {
         client.get("${BuildKonfig.baseUrl}/chars/get-all")
     }
 }

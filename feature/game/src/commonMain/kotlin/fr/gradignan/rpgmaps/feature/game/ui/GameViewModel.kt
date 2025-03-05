@@ -122,10 +122,10 @@ class GameViewModel(
             }
             is MapUpdate.LoadMap -> {
                 updateStateLogs("- Loading map: ${
-                        mapUpdate.map.substringAfterLast("/").substringBeforeLast(".")
+                        mapUpdate.mapFilename.substringAfterLast("/").substringBeforeLast(".")
                     }"
                 )
-                _gameState.update { it.copy (imageUrl = mapUpdate.map) }
+                _gameState.update { it.copy (imageUrl = mapUpdate.mapFilename) }
             }
             is MapUpdate.Move -> {
                 _gameState.update { it.moveCharacter(mapUpdate) }
@@ -154,7 +154,7 @@ class GameViewModel(
                 }
                 _statusState.update {
                     it.appendLog("- ${mapUpdate.character.name} added")
-                        .copy(characters = it.characters + mapUpdate.character.toCharItem())
+                        .copy(characters = it.characters + mapUpdate.character.toCharItem(it.characters.size))
                 }
             }
             is MapUpdate.InitiativeOrder -> {

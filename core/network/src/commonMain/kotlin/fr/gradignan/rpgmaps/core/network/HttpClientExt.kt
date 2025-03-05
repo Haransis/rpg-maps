@@ -1,5 +1,6 @@
 package fr.gradignan.rpgmaps.core.network
 
+import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.Result
 import io.ktor.client.call.NoTransformationFoundException
@@ -32,10 +33,13 @@ suspend inline fun <reified T> responseToResult(
             try {
                 Result.Success(response.body<T>())
             } catch (e: NoTransformationFoundException) {
+                Logger.e("NoTransformationFoundException: ${e.message}")
                 Result.Error(DataError.Http.SERIALIZATION)
             } catch (e: JsonConvertException) {
+                Logger.e("JsonConvertException: ${e.message}")
                 Result.Error(DataError.Http.SERIALIZATION)
             } catch (e: Exception) {
+                Logger.e("Unknown exception: ${e.message}")
                 Result.Error(DataError.Http.UNKNOWN)
             }
         }

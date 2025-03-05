@@ -56,8 +56,9 @@ data class ServerMessage(
                         put("characters", encoder.json.encodeToJsonElement(Payload.ServerInitiate.serializer(), payload))
                     }
                     is Payload.ServerLoadMap -> {
-                        put("map_id", JsonPrimitive(payload.id))
-                        put("map", JsonPrimitive(payload.map))
+                        put("map_ID", JsonPrimitive(payload.id))
+                        put("map_filename", JsonPrimitive(payload.mapFilename))
+                        put("map_scale", JsonPrimitive(payload.mapScale))
                     }
                     Payload.ServerNewTurn -> { }
                     Payload.ServerStartGame -> { }
@@ -69,7 +70,7 @@ data class ServerMessage(
                         put("id", JsonPrimitive(payload.id))
                     }
                     is Payload.ServerNext -> {
-                        put("ID", JsonPrimitive(payload.id))
+                        put("cm_ID", JsonPrimitive(payload.cmId))
                     }
                     is Payload.ServerPing -> {
                         put("x", JsonPrimitive(payload.x))

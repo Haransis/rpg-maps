@@ -1,6 +1,5 @@
 package fr.gradignan.rpgmaps.core.network.model
 
-import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.DataCharacter
 import fr.gradignan.rpgmaps.core.model.MapCharacter
@@ -8,12 +7,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class NetworkCharacter(
+data class NetworkMapCharacter(
     val owner: String? = null,
     val name: String? = null,
     val speed: Int? = null,
-    @SerialName("ID")
-    val id: Int? = null,
     val color: String? = null,
     @SerialName("cm_ID")
     val cmId: Int? = null,
@@ -25,41 +22,28 @@ data class NetworkCharacter(
     val y: Int? = null
 )
 
-inline fun <reified T : Character> NetworkCharacter.toExternal(): T {
-    return when (T::class) {
-        DataCharacter::class -> DataCharacter(
-            owner = owner,
-            name = name!!,
-            speed = speed!!.toFloat(),
-            id = id!!,
-            color = color!!
-        ) as T
-
-        MapCharacter::class -> MapCharacter(
+fun NetworkMapCharacter.toExternal(): MapCharacter {
+    return MapCharacter(
             owner = owner!!,
             name = name!!,
             speed = speed!!.toFloat(),
-            id = id!!,
             color = color!!,
             cmId = cmId!!,
             mapId = mapId!!,
             characterId = characterId!!,
             x = x!!,
             y = y!!
-        ) as T
-
-        else -> throw IllegalArgumentException("Unsupported type: ${T::class}")
+        )
     }
-}
 
-inline fun <reified T : Character> List<NetworkCharacter>.toExternal(): List<T> = map(NetworkCharacter::toExternal)
 
-fun MapCharacter.toNetwork(): NetworkCharacter {
-    return NetworkCharacter(
+fun List<NetworkMapCharacter>.toExternal(): List<MapCharacter> = map(NetworkMapCharacter::toExternal)
+
+fun MapCharacter.toNetwork(): NetworkMapCharacter {
+    return NetworkMapCharacter(
         owner = owner,
         name = name,
         speed = speed.toInt(),
-        id = id,
         color = color,
         cmId = cmId,
         mapId = mapId,
@@ -69,14 +53,13 @@ fun MapCharacter.toNetwork(): NetworkCharacter {
     )
 }
 
-fun List<MapCharacter>.toNetwork(): List<NetworkCharacter> = map(MapCharacter::toNetwork)
+fun List<MapCharacter>.toNetwork(): List<NetworkMapCharacter> = map(MapCharacter::toNetwork)
 
-fun NetworkCharacter.toAddCharacter(): MapCharacter =
+fun NetworkMapCharacter.toAddCharacter(): MapCharacter =
     MapCharacter(
         owner = owner!!,
         name = "",
         speed = 0f,
-        id = 0,
         color = "",
         cmId = 0,
         mapId = 0,

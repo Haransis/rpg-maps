@@ -23,19 +23,19 @@ sealed class Payload {
 
     @SerialName("Initiate")
     @Serializable
-    data class ServerInitiate(val characters: List<NetworkCharacter>) : Payload()
+    data class ServerInitiate(val characters: List<NetworkMapCharacter>) : Payload()
 
     @SerialName("LoadMap")
     @Serializable
-    data class ServerLoadMap(@SerialName("map_id") val id: Int?, val map: String) : Payload()
+    data class ServerLoadMap(@SerialName("map_ID") val id: Int?, @SerialName("map_filename") val mapFilename: String, @SerialName("map_scale") val mapScale: Float) : Payload()
 
     @SerialName("AddChar")
     @Serializable
-    data class ServerAddCharacterInput(val character: NetworkCharacter, val order: List<Int>) : Payload()
+    data class ServerAddCharacterInput(val character: NetworkMapCharacter, val order: List<Int>) : Payload()
 
     @SerialName("NewChar")
     @Serializable
-    data class ServerAddCharacterOutput(val character: NetworkCharacter) : Payload()
+    data class ServerAddCharacterOutput(val character: NetworkMapCharacter) : Payload()
 
     @SerialName("Move")
     @Serializable
@@ -47,7 +47,7 @@ sealed class Payload {
 
     @SerialName("Next")
     @Serializable
-    data class ServerNext(@SerialName("ID") val id: Int) : Payload()
+    data class ServerNext(@SerialName("cm_ID") val cmId: Int) : Payload()
 
     @SerialName("Ping")
     @Serializable
@@ -55,17 +55,17 @@ sealed class Payload {
 
     @SerialName("GMGetMap")
     @Serializable
-    data class ServerGMGetMap(val characters: List<NetworkCharacter>) : Payload()
+    data class ServerGMGetMap(val characters: List<NetworkMapCharacter>) : Payload()
 }
 
 fun Payload.toMapAction(): MapAction =
     when (this) {
         is Payload.ServerConnect -> MapUpdate.Connect(user)
         is Payload.ServerInitiate -> MapUpdate.Initiate(characters.toExternal())
-        is Payload.ServerLoadMap -> MapUpdate.LoadMap(id ?: 0,"${BuildKonfig.baseUrl}/static/map-images/$map")
+        is Payload.ServerLoadMap -> MapUpdate.LoadMap(id ?: 0,"${BuildKonfig.baseUrl}/static/map-images/$mapFilename", mapScale)
         is Payload.ServerMove -> MapUpdate.Move(name, x, y, owner, id)
         Payload.ServerNewTurn -> MapUpdate.NewTurn
-        is Payload.ServerNext -> MapUpdate.Next(id)
+        is Payload.ServerNext -> MapUpdate.Next(cmId)
         is Payload.ServerPing -> MapEffect.Ping(x.toInt(), y.toInt())
         is Payload.ServerGMGetMap -> MapUpdate.GMGetMap(characters.toExternal())
         is Payload.ServerAddCharacterOutput -> MapUpdate.AddCharacter(character.toExternal(), emptyList())
@@ -87,7 +87,7 @@ fun MapAction.toServerMessage(): ServerMessage =
             payload = Payload.ServerStartGame)
         is MapUpdate.LoadMap -> ServerMessage(
             action = "LoadMap",
-            payload = Payload.ServerLoadMap(id, map))
+            payload = Payload.ServerLoadMap(id, mapFilename, mapScale))
         is MapUpdate.Move -> ServerMessage(
             action = "Move",
             payload = Payload.ServerMove(name, x, y, owner, id))

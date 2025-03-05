@@ -16,6 +16,7 @@ import fr.gradignan.rpgmaps.feature.game.model.GmState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
@@ -57,19 +58,20 @@ class GmViewModel(
             .handleDataError()
     }
 
-    private fun fetchMapCharacters() = viewModelScope.launch {
+    private fun fetchMapCharacters() {
         mapActionRepository.getMapUpdatesFlow().onEach { result ->
             result.onSuccess {
                 if (it is MapUpdate.GMGetMap) {
                     mapCharacters = it.mapCharacters
                 }
-            }
-                .handleDataError()
-        }
+                if (it is MapUpdate.Initiate) {
+                    mapCharacters = it.mapCharacters
+                }
+            }.handleDataError()
+        }.launchIn(viewModelScope)
     }
 
     fun onBoardSelect(board: String) {
-        Logger.d("select: ${board}")
         _gmState.updateIfIs<GmState.Gm> { currentState ->
             currentState.copy(selectedBoard = currentState.boards.firstOrNull { it.name == board })
         }
@@ -86,7 +88,7 @@ class GmViewModel(
             if (it.selectedBoard == null) return
             viewModelScope.launch {
                 mapActionRepository
-                    .sendLoadMap(MapUpdate.LoadMap(it.selectedBoard.id, it.selectedBoard.name))
+                    .sendLoadMap(MapUpdate.LoadMap(it.selectedBoard.id, it.selectedBoard.name, 0f))
                     .handleDataError()
             }
         }
@@ -97,6 +99,7 @@ class GmViewModel(
             val character = state.availableCharacters.firstOrNull { it.name == state.selectedChar }
             if (character == null) return
             viewModelScope.launch {
+                Logger.d("mapCharacters: ${mapCharacters}, ${mapCharacters.size}")
                 mapActionRepository.sendAddCharacter(
                     characterId = character.id,
                     owner = username,

@@ -5,10 +5,10 @@ import fr.gradignan.rpgmaps.core.model.MapCharacter
 
 data class CharItem(val index: Int, val name: String, val optionalId: Int? = null)
 
-fun List<MapCharacter>.toCharItems(): List<CharItem> = this.map { it.toCharItem() }
-fun MapCharacter.toCharItem(): CharItem =
+fun List<MapCharacter>.toCharItems(): List<CharItem> = this.mapIndexed { index, mapCharacter -> mapCharacter.toCharItem(index) }
+fun MapCharacter.toCharItem(index: Int): CharItem =
     CharItem(
-        index = this.cmId,
+        index = index,
         name = this.name,
-        optionalId = this.id
+        optionalId = this.cmId
     )
