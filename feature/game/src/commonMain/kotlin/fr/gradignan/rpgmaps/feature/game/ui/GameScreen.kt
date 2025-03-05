@@ -110,6 +110,7 @@ import fr.gradignan.rpgmaps.core.ui.theme.spacing
 import fr.gradignan.rpgmaps.feature.game.model.CharItem
 import fr.gradignan.rpgmaps.feature.game.model.MapState
 import fr.gradignan.rpgmaps.feature.game.model.DistancePath
+import fr.gradignan.rpgmaps.feature.game.model.GameIntent
 import fr.gradignan.rpgmaps.feature.game.model.GmState
 import fr.gradignan.rpgmaps.feature.game.model.StatusState
 import kotlinx.coroutines.launch
@@ -120,6 +121,7 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.reflect.KFunction1
 
 private const val PING_RADIUS_PX = 20f
 private const val SELECTED_CHARACTER_RADIUS = 25
@@ -237,17 +239,7 @@ fun GameScreen(
                             GameContent(
                                 mapState = state,
                                 statusState = statusState,
-                                onPingCheck = viewModel::onPingCheck,
-                                onRulerCheck = viewModel::onRulerCheck,
-                                onDeleteChar = viewModel::onDeleteChar,
-                                onChangeInitiative = viewModel::onChangeInitiative,
-                                onEndTurn = viewModel::onEndTurn,
-                                onGmCheck = viewModel::onGmCheck,
-                                onSprintCheck = viewModel::onSprintCheck,
-                                onMapClick = viewModel::onMapClick,
-                                onPointerMove = viewModel::onPointerMove,
-                                onDoubleClick = viewModel::onDoubleClick,
-                                onUnselect = viewModel::onUnselect,
+                                action = viewModel::processIntent,
                                 modifier = modifier.padding(innerPadding),
                             )
                         }
@@ -262,37 +254,18 @@ fun GameScreen(
 fun GameContent(
     mapState: MapState.Game,
     statusState: StatusState,
-    onPingCheck: (Boolean) -> Unit,
-    onRulerCheck: (Boolean) -> Unit,
-    onDeleteChar: (Int) -> Unit,
-    onChangeInitiative: (List<Int>) -> Unit,
-    onEndTurn: () -> Unit,
-    onGmCheck: (Boolean) -> Unit,
-    onSprintCheck: (Boolean) -> Unit,
-    onMapClick: (Offset) -> Unit,
-    onPointerMove: (Offset) -> Unit,
-    onDoubleClick: () -> Unit,
-    onUnselect: () -> Unit,
+    action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(modifier.fillMaxSize()) {
         MapSideBar(
             statusState = statusState,
-            onChangeInitiative = onChangeInitiative,
-            onDelete = onDeleteChar,
-            onEndTurn = onEndTurn,
+            action = action,
             modifier = Modifier.fillMaxWidth(0.2f),
         )
         MapContainer(
             mapState = mapState,
-            onPingCheck = onPingCheck,
-            onRulerCheck = onRulerCheck,
-            onMapClick = onMapClick,
-            onPointerMove = onPointerMove,
-            onDoubleClick = onDoubleClick,
-            onGmCheck = onGmCheck,
-            onSprintCheck = onSprintCheck,
-            onUnselect = onUnselect,
+            action = action,
             modifier = Modifier.fillMaxHeight().weight(1f),
         )
     }
@@ -481,14 +454,7 @@ fun StringSelector(
 @Composable
 private fun MapContainer(
     mapState: MapState.Game,
-    onPingCheck: (Boolean) -> Unit,
-    onRulerCheck: (Boolean) -> Unit,
-    onMapClick: (Offset) -> Unit,
-    onPointerMove: (Offset) -> Unit,
-    onDoubleClick: () -> Unit,
-    onUnselect: () -> Unit,
-    onGmCheck: (Boolean) -> Unit,
-    onSprintCheck: (Boolean) -> Unit,
+    action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val mapTransformState = remember { MapTransformState() }
@@ -514,14 +480,7 @@ private fun MapContainer(
                         painter = painter,
                         painterState = state,
                         mapTransformState = mapTransformState,
-                        onPingCheck = onPingCheck,
-                        onRulerCheck = onRulerCheck,
-                        onMapClick = onMapClick,
-                        onPointerMove = onPointerMove,
-                        onDoubleClick = onDoubleClick,
-                        onUnselect = onUnselect,
-                        onGmCheck = onGmCheck,
-                        onSprintCheck = onSprintCheck
+                        action = action
                     )
                 }
                 is AsyncImagePainter.State.Error -> Text(text = "Error loading image", color = MaterialTheme.colorScheme.error)
@@ -546,10 +505,7 @@ private fun MoveControls(
     isPingChecked: Boolean,
     isRulerChecked: Boolean,
     isSprintChecked: Boolean,
-    onGmCheck: (Boolean) -> Unit,
-    onPingCheck: (Boolean) -> Unit,
-    onRulerCheck: (Boolean) -> Unit,
-    onSprintCheck: (Boolean) -> Unit,
+    action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -565,24 +521,24 @@ private fun MoveControls(
                 SwitchText(
                     text = "Gm mode",
                     checked = isGmChecked,
-                    onCheck = onGmCheck,
+                    onCheck = { action(GameIntent.GmCheck(it)) },
                     modifier = Modifier.padding(end = MaterialTheme.spacing.small)
                 )
             }
             CheckBoxText(
                 text = "Sprint",
                 checked = isSprintChecked,
-                onCheck = onSprintCheck
+                onCheck = { action(GameIntent.SprintCheck(it)) }
             )
             CheckBoxText(
                 text = "Ping",
                 checked = isPingChecked,
-                onCheck = onPingCheck
+                onCheck = { action(GameIntent.PingCheck(it)) }
             )
             CheckBoxText(
                 text = "Ruler",
                 checked = isRulerChecked,
-                onCheck = onRulerCheck
+                onCheck = { action(GameIntent.RulerCheck(it)) }
             )
         }
     }
@@ -646,14 +602,7 @@ private fun MapContent(
     painter: AsyncImagePainter,
     painterState: AsyncImagePainter.State.Success,
     mapTransformState: MapTransformState,
-    onGmCheck: (Boolean) -> Unit,
-    onSprintCheck: (Boolean) -> Unit,
-    onPingCheck: (Boolean) -> Unit,
-    onRulerCheck: (Boolean) -> Unit,
-    onMapClick: (Offset) -> Unit,
-    onPointerMove: (Offset) -> Unit,
-    onDoubleClick: () -> Unit,
-    onUnselect: () -> Unit,
+    action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -698,10 +647,7 @@ private fun MapContent(
                 transformer = transformer,
                 hoveredCharacterId = mapState.hoveredCharacterId,
                 selectedMapCharacter = mapState.selectedMapCharacter,
-                onMapClick = onMapClick,
-                onDoubleClick = onDoubleClick,
-                onPointerMove = onPointerMove,
-                onUnselect = onUnselect,
+                action = action,
                 modifier = Modifier.matchParentSize()
                     .pointerHoverIcon(if (mapState.hoveredCharacterId != null) PointerIcon.Hand else PointerIcon.Default)
             )
@@ -715,12 +661,9 @@ private fun MapContent(
             isAdmin = mapState.isAdmin,
             isGmChecked = mapState.isGmChecked,
             isSprintChecked = mapState.isSprintChecked,
-            onSprintCheck = onSprintCheck,
-            onGmCheck = onGmCheck,
             isPingChecked = mapState.isPingChecked,
             isRulerChecked = mapState.isRulerChecked,
-            onPingCheck = onPingCheck,
-            onRulerCheck = onRulerCheck,
+            action = action,
             modifier = Modifier.align(Alignment.TopCenter)
         )
         MapControls(
@@ -757,10 +700,7 @@ private fun CharactersOverlay(
     transformer: MapTransformer,
     hoveredCharacterId: Int?,
     selectedMapCharacter: MapCharacter?,
-    onMapClick: (Offset) -> Unit,
-    onDoubleClick: () -> Unit,
-    onPointerMove: (Offset) -> Unit,
-    onUnselect: () -> Unit,
+    action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
@@ -770,10 +710,10 @@ private fun CharactersOverlay(
                 with(transformer) {
                     detectTapGestures (
                         onDoubleTap = {
-                            onDoubleClick()
+                            action(GameIntent.DoubleClick)
                         },
                         onTap = {
-                            onMapClick(toAbsoluteOffset(it))
+                            action(GameIntent.MapClick(toAbsoluteOffset(it)))
                         }
                     )
                 }
@@ -781,8 +721,11 @@ private fun CharactersOverlay(
             .pointerInput(Unit) {
                 with(transformer) {
                     handleMapGestures(
-                        onUnselect = onUnselect,
-                        onPointerMove = { newPosition -> onPointerMove(toAbsoluteOffset(newPosition))}
+                        onUnselect = { action(GameIntent.Unselect) },
+                        onPointerMove = {
+                            val newPosition = toAbsoluteOffset(it)
+                            action(GameIntent.PointerMove(newPosition))
+                        }
                     )
                 }
             }
@@ -1006,9 +949,7 @@ data class MapTransformState(
 @Composable
 private fun MapSideBar(
     statusState: StatusState,
-    onChangeInitiative: (List<Int>) -> Unit,
-    onDelete: (Int) -> Unit,
-    onEndTurn: () -> Unit,
+    action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1018,8 +959,8 @@ private fun MapSideBar(
         ReorderableList(
             isAdmin = statusState.isAdmin,
             items = statusState.characters,
-            onDelete = onDelete,
-            onChangeInitiative = onChangeInitiative,
+            onDelete = { action(GameIntent.DeleteChar(it)) },
+            onChangeInitiative = { action(GameIntent.ChangeInitiative(it)) },
             modifier = Modifier
                 .padding(bottom = MaterialTheme.spacing.medium)
                 .fillMaxWidth()
@@ -1037,7 +978,7 @@ private fun MapSideBar(
             }
         }
         Button(
-            onClick = onEndTurn,
+            onClick = { action(GameIntent.EndTurn) },
             enabled = statusState.isPlayerTurn,
             modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
         ) {

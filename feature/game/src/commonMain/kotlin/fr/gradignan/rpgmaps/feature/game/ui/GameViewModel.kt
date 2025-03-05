@@ -15,6 +15,7 @@ import fr.gradignan.rpgmaps.core.ui.error.toUiText
 import fr.gradignan.rpgmaps.feature.game.model.CharItem
 import fr.gradignan.rpgmaps.feature.game.model.MapState
 import fr.gradignan.rpgmaps.feature.game.model.DistancePath
+import fr.gradignan.rpgmaps.feature.game.model.GameIntent
 import fr.gradignan.rpgmaps.feature.game.model.StatusState
 import fr.gradignan.rpgmaps.feature.game.model.toCharItem
 import fr.gradignan.rpgmaps.feature.game.model.toCharItems
@@ -186,57 +187,6 @@ class GameViewModel(
         return newState
     }
 
-    fun onEndTurn() {
-        _gameState.update { it.deselectCharacter() }
-        viewModelScope.launch {
-            mapActionRepository.endTurn(
-                (_mapState.value as? MapState.Game)?.playingMapCharacter?.cmId ?: -1
-            ).onError { handleMapUpdateError(it) }
-        }
-    }
-
-    fun onSprintCheck(checked: Boolean) {
-        _gameState.update { state ->
-            Logger.d("checked: $checked, playing: ${state.playingMapCharacter}")
-            if (state.playingMapCharacter == null) return@update state
-            val baseSpeed = state.mapCharacters.firstOrNull { it.cmId == state.playingMapCharacter.cmId }?.speed ?: 0f
-            val updatedSpeed = (if (checked) baseSpeed + state.playingMapCharacter.speed
-                else state.playingMapCharacter.speed - baseSpeed)
-            state.copy(
-                playingMapCharacter = state.playingMapCharacter.copy(speed = updatedSpeed),
-                isSprintChecked = checked
-            ).deselectCharacter()
-        }
-    }
-
-    fun onMapClick(point: Offset) {
-        _gameState.update { currentState ->
-            return@update when {
-                currentState.isPingChecked -> {
-                    viewModelScope.launch {
-                        mapActionRepository.sendPing(MapEffect.Ping(point.x.toInt(), point.y.toInt()))
-                            .onError { handleMapUpdateError(it) }
-                    }
-                    currentState
-                }
-                currentState.isRulerChecked -> {
-                    currentState.copy(
-                        ruler = DistancePath(listOf(point, point))
-                    )
-                }
-                else -> {
-                    val clickedCharacter = currentState.findClickedCharacter(point)
-
-                    when {
-                        clickedCharacter != null -> selectCharacter(currentState, clickedCharacter)
-                        currentState.selectedMapCharacter?.owner == playerName || currentState.isGmChecked -> currentState.appendPath(point)
-                        else -> currentState.deselectCharacter()
-                    }
-                }
-            }
-        }
-    }
-
     private fun MapState.Game.findClickedCharacter(point: Offset): MapCharacter? {
         return this.mapCharacters.firstOrNull { character ->
             val center = Offset(character.x.toFloat(), character.y.toFloat())
@@ -303,7 +253,83 @@ class GameViewModel(
         y + (target.y - y) * factor
     )
 
-    fun onUnselect() {
+    private fun MapState.Game.deselectCharacter(): MapState.Game =
+        this.copy(
+            selectedMapCharacter = null,
+            previewPath = DistancePath()
+        )
+
+    private fun List<Offset>.totalDistance(): Float
+        = this.zipWithNext { current, next -> current.getDistanceTo(next) }.sum()
+
+    fun processIntent(intent: GameIntent) {
+        when (intent) {
+            GameIntent.EndTurn -> onEndTurn()
+            is GameIntent.MapClick -> onMapClick(intent.point)
+            is GameIntent.ChangeInitiative -> onChangeInitiative(intent.order)
+            GameIntent.DoubleClick -> onDoubleClick()
+            is GameIntent.GmCheck -> onGmCheck(intent.checked)
+            is GameIntent.PingCheck -> onPingCheck(intent.change)
+            is GameIntent.PointerMove -> onPointerMove(intent.offset)
+            is GameIntent.RulerCheck -> onRulerCheck(intent.change)
+            is GameIntent.SprintCheck -> onSprintCheck(intent.checked)
+            GameIntent.Unselect -> onUnselect()
+            is GameIntent.DeleteChar -> onDeleteChar(intent.index)
+        }
+    }
+
+    private fun onEndTurn() {
+        _gameState.update { it.deselectCharacter() }
+        viewModelScope.launch {
+            mapActionRepository.endTurn(
+                (_mapState.value as? MapState.Game)?.playingMapCharacter?.cmId ?: -1
+            ).onError { handleMapUpdateError(it) }
+        }
+    }
+
+    private fun onSprintCheck(checked: Boolean) {
+        _gameState.update { state ->
+            Logger.d("checked: $checked, playing: ${state.playingMapCharacter}")
+            if (state.playingMapCharacter == null) return@update state
+            val baseSpeed = state.mapCharacters.firstOrNull { it.cmId == state.playingMapCharacter.cmId }?.speed ?: 0f
+            val updatedSpeed = (if (checked) baseSpeed + state.playingMapCharacter.speed
+            else state.playingMapCharacter.speed - baseSpeed)
+            state.copy(
+                playingMapCharacter = state.playingMapCharacter.copy(speed = updatedSpeed),
+                isSprintChecked = checked
+            ).deselectCharacter()
+        }
+    }
+
+    private fun onMapClick(point: Offset) {
+        _gameState.update { currentState ->
+            return@update when {
+                currentState.isPingChecked -> {
+                    viewModelScope.launch {
+                        mapActionRepository.sendPing(MapEffect.Ping(point.x.toInt(), point.y.toInt()))
+                            .onError { handleMapUpdateError(it) }
+                    }
+                    currentState
+                }
+                currentState.isRulerChecked -> {
+                    currentState.copy(
+                        ruler = DistancePath(listOf(point, point))
+                    )
+                }
+                else -> {
+                    val clickedCharacter = currentState.findClickedCharacter(point)
+
+                    when {
+                        clickedCharacter != null -> selectCharacter(currentState, clickedCharacter)
+                        currentState.selectedMapCharacter?.owner == playerName || currentState.isGmChecked -> currentState.appendPath(point)
+                        else -> currentState.deselectCharacter()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun onUnselect() {
         _gameState.update {
             it.deselectCharacter()
         }
@@ -311,13 +337,7 @@ class GameViewModel(
         onRulerCheck(false)
     }
 
-    private fun MapState.Game.deselectCharacter(): MapState.Game =
-        this.copy(
-            selectedMapCharacter = null,
-            previewPath = DistancePath()
-        )
-
-    fun onDoubleClick() {
+    private fun onDoubleClick() {
         with(_gameState.value) {
             if (
                 selectedMapCharacter == null
@@ -338,10 +358,7 @@ class GameViewModel(
         }
     }
 
-    private fun List<Offset>.totalDistance(): Float
-        = this.zipWithNext { current, next -> current.getDistanceTo(next) }.sum()
-
-    fun onPointerMove(offset: Offset) {
+    private fun onPointerMove(offset: Offset) {
         _gameState.update {
             return@update when {
                 it.isPingChecked -> it.copy(laserPosition = offset)
@@ -359,24 +376,24 @@ class GameViewModel(
         }
     }
 
-    fun onGmCheck(checked: Boolean) {
+    private fun onGmCheck(checked: Boolean) {
         _gameState.update {
             it.copy(isGmChecked = checked)
         }
     }
 
-    fun onDeleteChar(index: Int) {
+    private fun onDeleteChar(index: Int) {
         TODO("Not yet implemented")
     }
 
-    fun onChangeInitiative(order: List<Int>) {
+    private fun onChangeInitiative(order: List<Int>) {
         viewModelScope.launch {
             mapActionRepository.sendInitiativeOrder(MapUpdate.InitiativeOrder(order))
                 .onError { error -> handleMapUpdateError(error) }
         }
     }
 
-    fun onRulerCheck(change: Boolean) {
+    private fun onRulerCheck(change: Boolean) {
         _gameState.update {
             it.copy(
                 isPingChecked = if (change) false else it.isPingChecked,
@@ -387,7 +404,7 @@ class GameViewModel(
         }
     }
 
-    fun onPingCheck(change: Boolean) {
+    private fun onPingCheck(change: Boolean) {
         _gameState.update {
             it.copy(
                 isRulerChecked = if (change) false else it.isRulerChecked,
