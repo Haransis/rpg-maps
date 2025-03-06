@@ -8,3 +8,9 @@ data class DistancePath(
     val totalDistance: Float = 0f,
     val unreachableStop: Offset? = null,
 )
+
+fun DistancePath.extendPath(end: Offset, distance: Float) = DistancePath(
+    reachable = reachable + end,
+    unreachableStop = null,
+    totalDistance = distance
+)

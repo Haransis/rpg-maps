@@ -62,7 +62,7 @@ fun Payload.toMapAction(): MapAction =
     when (this) {
         is Payload.ServerConnect -> MapUpdate.Connect(user)
         is Payload.ServerInitiate -> MapUpdate.Initiate(characters.toExternal())
-        is Payload.ServerLoadMap -> MapUpdate.LoadMap(id ?: 0,"${BuildKonfig.baseUrl}/static/map-images/$mapFilename", mapScale)
+        is Payload.ServerLoadMap -> MapUpdate.LoadMap(id ?: 0,"${BuildKonfig.baseUrl}/back/static/map-images/$mapFilename", mapScale)
         is Payload.ServerMove -> MapUpdate.Move(name, x, y, owner, id)
         Payload.ServerNewTurn -> MapUpdate.NewTurn
         is Payload.ServerNext -> MapUpdate.Next(cmId)

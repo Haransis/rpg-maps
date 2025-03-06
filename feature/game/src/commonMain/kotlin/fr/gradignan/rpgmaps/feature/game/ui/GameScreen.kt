@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
@@ -111,8 +112,9 @@ import fr.gradignan.rpgmaps.feature.game.model.CharItem
 import fr.gradignan.rpgmaps.feature.game.model.MapState
 import fr.gradignan.rpgmaps.feature.game.model.DistancePath
 import fr.gradignan.rpgmaps.feature.game.model.GameIntent
+import fr.gradignan.rpgmaps.feature.game.model.GameState
 import fr.gradignan.rpgmaps.feature.game.model.GmState
-import fr.gradignan.rpgmaps.feature.game.model.StatusState
+import fr.gradignan.rpgmaps.feature.game.model.HUDState
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
@@ -121,7 +123,6 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.reflect.KFunction1
 
 private const val PING_RADIUS_PX = 20f
 private const val SELECTED_CHARACTER_RADIUS = 25
@@ -150,12 +151,11 @@ fun GameScreen(
     viewModel: GameViewModel = koinViewModel<GameViewModel>(),
     gmViewModel: GmViewModel = koinViewModel<GmViewModel>()
 ) {
-    val mapState: MapState by viewModel.mapState.collectAsStateWithLifecycle()
-    val statusState: StatusState by viewModel.statusState.collectAsStateWithLifecycle()
+    val gameState: GameState by viewModel.gameState.collectAsStateWithLifecycle()
     val gmState: GmState by gmViewModel.gmState.collectAsStateWithLifecycle()
 
-    when (val state = mapState) {
-        MapState.Loading -> {
+    when (val state = gameState) {
+        GameState.Loading -> {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxSize()
@@ -163,7 +163,7 @@ fun GameScreen(
                 CircularProgressIndicator()
             }
         }
-        is MapState.Error -> {
+        is GameState.Error -> {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxSize()
@@ -174,8 +174,7 @@ fun GameScreen(
                 )
             }
         }
-        is MapState.Game -> {
-
+        is GameState.Active -> {
             val drawerState = rememberDrawerState(DrawerValue.Closed)
             val scope = rememberCoroutineScope()
 
@@ -207,7 +206,7 @@ fun GameScreen(
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr ) {
                         Scaffold(
                             topBar = {
-                                TopAppBar(
+                                CenterAlignedTopAppBar(
                                     title = { Text("Game") },
                                     navigationIcon = {
                                         IconButton(onClick = onBack) {
@@ -218,7 +217,7 @@ fun GameScreen(
                                         }
                                     },
                                     actions = {
-                                        if (state.isAdmin) {
+                                        if (state.mapState.isAdmin) {
                                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
                                                 Icon(
                                                     Icons.Default.Menu,
@@ -236,38 +235,23 @@ fun GameScreen(
                                 )
                             }
                         ) { innerPadding ->
-                            GameContent(
-                                mapState = state,
-                                statusState = statusState,
-                                action = viewModel::processIntent,
-                                modifier = modifier.padding(innerPadding),
-                            )
+                            Row(modifier.padding(innerPadding).fillMaxSize()) {
+                                MapSideBar(
+                                    hudState = state.hudState,
+                                    action = viewModel::processIntent,
+                                    modifier = Modifier.fillMaxWidth(0.2f),
+                                )
+                                MapContainer(
+                                    mapState = state.mapState,
+                                    action = viewModel::processIntent,
+                                    modifier = Modifier.fillMaxHeight().weight(1f),
+                                )
+                            }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun GameContent(
-    mapState: MapState.Game,
-    statusState: StatusState,
-    action: (GameIntent) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(modifier.fillMaxSize()) {
-        MapSideBar(
-            statusState = statusState,
-            action = action,
-            modifier = Modifier.fillMaxWidth(0.2f),
-        )
-        MapContainer(
-            mapState = mapState,
-            action = action,
-            modifier = Modifier.fillMaxHeight().weight(1f),
-        )
     }
 }
 
@@ -378,7 +362,7 @@ fun ReorderableList(
                                 contentDescription = "Reorder",
                             )
                         }
-                        val label = if (item.optionalId == null) item.name else "${item.name} - ${item.optionalId}"
+                        val label = if (item.cmId == null) item.name else "${item.name} - ${item.cmId}"
                         Text(label, Modifier.weight(1f))
                         if (isAdmin) {
                             IconButton(
@@ -453,7 +437,7 @@ fun StringSelector(
 
 @Composable
 private fun MapContainer(
-    mapState: MapState.Game,
+    mapState: MapState,
     action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -598,7 +582,7 @@ data class MapTransformer(
 
 @Composable
 private fun MapContent(
-    mapState: MapState.Game,
+    mapState: MapState,
     painter: AsyncImagePainter,
     painterState: AsyncImagePainter.State.Success,
     mapTransformState: MapTransformState,
@@ -948,7 +932,7 @@ data class MapTransformState(
 
 @Composable
 private fun MapSideBar(
-    statusState: StatusState,
+    hudState: HUDState,
     action: (GameIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -957,8 +941,8 @@ private fun MapSideBar(
     ) {
         Text("Characters:")
         ReorderableList(
-            isAdmin = statusState.isAdmin,
-            items = statusState.characters,
+            isAdmin = hudState.isAdmin,
+            items = hudState.characters,
             onDelete = { action(GameIntent.DeleteChar(it)) },
             onChangeInitiative = { action(GameIntent.ChangeInitiative(it)) },
             modifier = Modifier
@@ -973,13 +957,13 @@ private fun MapSideBar(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            items(statusState.logs.size) { index ->
-                Text(statusState.logs[index])
+            items(hudState.logs.size) { index ->
+                Text(hudState.logs[index])
             }
         }
         Button(
             onClick = { action(GameIntent.EndTurn) },
-            enabled = statusState.isPlayerTurn,
+            enabled = hudState.isPlayerTurn,
             modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
         ) {
             Text("End turn")
