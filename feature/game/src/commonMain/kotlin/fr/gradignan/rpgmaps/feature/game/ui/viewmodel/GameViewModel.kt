@@ -1,4 +1,4 @@
-package fr.gradignan.rpgmaps.feature.game.ui
+package fr.gradignan.rpgmaps.feature.game.ui.viewmodel
 
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel

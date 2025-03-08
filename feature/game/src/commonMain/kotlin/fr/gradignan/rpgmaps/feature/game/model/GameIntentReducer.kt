@@ -2,8 +2,7 @@ package fr.gradignan.rpgmaps.feature.game.model
 
 import androidx.compose.ui.geometry.Offset
 import fr.gradignan.rpgmaps.core.model.MapCharacter
-import fr.gradignan.rpgmaps.feature.game.ui.CHARACTER_RADIUS
-import fr.gradignan.rpgmaps.feature.game.ui.getDistanceTo
+import fr.gradignan.rpgmaps.feature.game.CHARACTER_RADIUS
 
 
 class GameIntentReducer(

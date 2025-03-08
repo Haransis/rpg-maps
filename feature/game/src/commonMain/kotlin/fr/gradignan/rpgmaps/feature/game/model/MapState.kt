@@ -1,10 +1,16 @@
 package fr.gradignan.rpgmaps.feature.game.model
 
 import androidx.compose.ui.geometry.Offset
+import androidx.lifecycle.viewModelScope
+import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.core.model.MapEffect
+import fr.gradignan.rpgmaps.core.model.MapUpdate
+import fr.gradignan.rpgmaps.core.model.Result
+import fr.gradignan.rpgmaps.core.model.onError
 import fr.gradignan.rpgmaps.core.ui.error.UiText
-import fr.gradignan.rpgmaps.feature.game.ui.getDistanceTo
+import fr.gradignan.rpgmaps.core.ui.error.toUiText
+import kotlinx.coroutines.launch
 import kotlin.Float.Companion.POSITIVE_INFINITY
 
 
@@ -19,7 +25,7 @@ data class MapState(
     val hoveredCharacterId: Int? = null,
     val playingMapCharacter: MapCharacter? = null,
     val pings: List<MapEffect.Ping> = emptyList(),
-    val nonBlockingError: UiText? = null,
+    val error: UiText? = null,
     val isSprintChecked: Boolean = false,
     val isGmChecked: Boolean = false,
     val ruler: DistancePath = DistancePath(),

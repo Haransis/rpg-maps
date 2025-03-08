@@ -45,14 +45,14 @@ class MapUpdateReducer(
                 )
             is GameState.Error -> currentState
             is GameState.Loading -> GameState.Active(
-                mapState = MapState(isAdmin = isAdmin, nonBlockingError = error.toUiText()),
+                mapState = MapState(isAdmin = isAdmin, error = error.toUiText()),
                 hudState = HUDState(isAdmin = isAdmin),
             )
         }
 
     private fun reduceMapState(mapState: MapState, error: DataError.WebSocket): MapState {
         return mapState.copy(
-            nonBlockingError = error.toUiText()
+            error = error.toUiText()
         )
     }
 
@@ -107,7 +107,7 @@ class MapUpdateReducer(
             }")
             MapUpdate.NewTurn -> state.appendLog("- New Turn")
             is MapUpdate.Next -> {
-                val playingCharacter = state.characters.find { it.cmId == mapUpdate.id }
+                val playingCharacter = state.characters.find { it.optionalId == mapUpdate.id }
                 if (playingCharacter != null) {
                     state.appendLog("- ${playingCharacter.name} is playing")
                         .copy(isPlayerTurn = playingCharacter.owner == playerName)
