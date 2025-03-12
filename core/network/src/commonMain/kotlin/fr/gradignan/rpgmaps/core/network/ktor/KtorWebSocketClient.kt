@@ -1,7 +1,5 @@
 package fr.gradignan.rpgmaps.core.network.ktor
 
-import fr.gradignan.rpgmaps.core.network.model.Payload
-import fr.gradignan.rpgmaps.core.network.model.ServerMessage
 import co.touchlab.kermit.Logger
 import com.russhwolf.settings.Settings
 import fr.gradignan.rpgmaps.core.model.DataError
@@ -12,8 +10,9 @@ import fr.gradignan.rpgmaps.core.model.after
 import fr.gradignan.rpgmaps.core.model.map
 import fr.gradignan.rpgmaps.core.network.BuildKonfig
 import fr.gradignan.rpgmaps.core.network.WebSocketClient
+import fr.gradignan.rpgmaps.core.network.model.IncomingPayload
 import fr.gradignan.rpgmaps.core.network.model.toMapAction
-import fr.gradignan.rpgmaps.core.network.model.toServerMessage
+import fr.gradignan.rpgmaps.core.network.model.toOutgoingPayload
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.http.HttpHeaders
@@ -29,8 +28,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -82,14 +79,13 @@ class KtorWebSocketClient(
                     Result.Error(DataError.WebSocket.UNKNOWN)
                 }
                 try {
-                    val jsonString = encoder.encodeToString(mapAction.toServerMessage())
-                    Logger.d("send: $jsonString")
+                    val jsonString = encoder.encodeToString(mapAction.toOutgoingPayload())
                     ws!!.send(Frame.Text(jsonString))
                     Result.Success(Unit)
                 } catch (e: SerializationException) {
                     Result.Error(DataError.WebSocket.SERIALIZATION)
                 } catch (e: Exception) {
-                    coroutineContext.ensureActive() // ensure we respect cancellation.
+                    coroutineContext.ensureActive()
                     Logger.e("$e")
                     Result.Error(DataError.WebSocket.UNKNOWN)
                 }
@@ -135,11 +131,11 @@ class KtorWebSocketClient(
         }
     }
 
-    private fun processIncomingMessage(jsonString: String): Result<Payload, DataError> {
+    private fun processIncomingMessage(jsonString: String): Result<IncomingPayload, DataError> {
         return try {
-            val message = encoder.decodeFromString<ServerMessage>(jsonString)
-            Logger.d { "Received server message: ${message.action}" }
-            Result.Success(message.payload)
+            val message = encoder.decodeFromString<IncomingPayload>(jsonString)
+            Logger.d { "Received server message: $message" }
+            Result.Success(message)
         } catch (e: SerializationException) {
             Logger.e("$e")
             Result.Error(DataError.WebSocket.SERIALIZATION)
@@ -149,7 +145,7 @@ class KtorWebSocketClient(
         }
     }
 
-    private fun toMapActionResult(payload: Result<Payload, DataError>): Result<MapAction, DataError> {
+    private fun toMapActionResult(payload: Result<IncomingPayload, DataError>): Result<MapAction, DataError> {
         return payload.map { it.toMapAction() }
     }
 

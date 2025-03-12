@@ -20,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
@@ -91,22 +92,23 @@ fun GameScreen(
                     drawerState = drawerState,
                     drawerContent = {
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr ) {
-                            when (val newState = gmState) {
-                                GmState.Loading -> CenteredProgressIndicator()
-                                is GmState.Error -> CenteredErrorText(newState.error.asString())
-                                is GmState.Gm ->
-                                    GmToolBox(
-                                        selectedBoard = newState.selectedBoard,
-                                        boards = newState.boards,
-                                        selectedCharacter = newState.selectedChar,
-                                        availableCharacters = newState.availableCharacters,
-                                        onBoardSubmit = gmViewModel::onBoardSubmit,
-                                        onCharacterSelect = gmViewModel::onCharacterSelect,
-                                        onCharacterSubmit = gmViewModel::onCharacterSubmit,
-                                        onStartGame = gmViewModel::onStartGame,
-                                        onBoardSelect = gmViewModel::onBoardSelect,
-                                        modifier = Modifier.fillMaxWidth(0.3f),
-                                    )
+                            Surface(Modifier.fillMaxWidth(0.3f)) {
+                                when (val newState = gmState) {
+                                    GmState.Loading -> CenteredProgressIndicator()
+                                    is GmState.Error -> CenteredErrorText(newState.error.asString())
+                                    is GmState.Gm ->
+                                        GmToolBox(
+                                            selectedBoard = newState.selectedBoard,
+                                            boards = newState.boards,
+                                            selectedCharacter = newState.selectedChar,
+                                            availableCharacters = newState.availableCharacters,
+                                            onBoardSubmit = gmViewModel::onBoardSubmit,
+                                            onCharacterSelect = gmViewModel::onCharacterSelect,
+                                            onCharacterSubmit = gmViewModel::onCharacterSubmit,
+                                            onStartGame = gmViewModel::onStartGame,
+                                            onBoardSelect = gmViewModel::onBoardSelect,
+                                        )
+                                }
                             }
                         }
                     }

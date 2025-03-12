@@ -31,6 +31,7 @@ val NetworkModule = module {
             isLenient = true
             explicitNulls = false
             prettyPrint = true
+            classDiscriminator = "action"
         }
     }
     single {

@@ -30,45 +30,41 @@ fun GmToolBox(
     onStartGame: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier.fillMaxSize()
+    Column (
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
     ) {
-        Column (
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize().padding(MaterialTheme.spacing.small)
+        Text("Gm Toolbox", style = MaterialTheme.typography.titleMedium)
+        StringSelector(
+            selectedOptions = selectedBoard?.name,
+            options = boards.map { it.name },
+            placeHolder = "Choose a map",
+            onOptionSelect = onBoardSelect,
+            modifier = Modifier.padding(top = MaterialTheme.spacing.medium)
+        )
+        Button(
+            enabled = selectedBoard != null,
+            onClick = onBoardSubmit,
+            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
         ) {
-            Text("Gm Toolbox", style = MaterialTheme.typography.titleMedium)
-            StringSelector(
-                selectedOptions = selectedBoard?.name,
-                options = boards.map { it.name },
-                placeHolder = "Choose a map",
-                onOptionSelect = onBoardSelect,
-                modifier = Modifier.padding(top = MaterialTheme.spacing.medium)
-            )
-            Button(
-                enabled = selectedBoard != null,
-                onClick = onBoardSubmit,
-                modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
-            ) {
-                Text("Load")
-            }
-            StringSelector(
-                selectedOptions = selectedCharacter,
-                options = availableCharacters.map { it.name },
-                placeHolder = "Choose a character",
-                onOptionSelect = onCharacterSelect,
-            )
-            Button(
-                enabled = selectedCharacter != null,
-                onClick = onCharacterSubmit,
-                modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
-            ) {
-                Text("Add")
-            }
-            Button(onClick = onStartGame) {
-                Text("Start Game")
-            }
+            Text("Load")
+        }
+        StringSelector(
+            selectedOptions = selectedCharacter,
+            options = availableCharacters.map { it.name },
+            placeHolder = "Choose a character",
+            onOptionSelect = onCharacterSelect,
+        )
+        Button(
+            enabled = selectedCharacter != null,
+            onClick = onCharacterSubmit,
+            modifier = Modifier.padding(bottom = MaterialTheme.spacing.medium)
+        ) {
+            Text("Add")
+        }
+        Button(onClick = onStartGame) {
+            Text("Start Game")
         }
     }
 }

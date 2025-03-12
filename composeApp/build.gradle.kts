@@ -40,6 +40,7 @@ kotlin {
             implementation(projects.feature.game)
             implementation(projects.feature.home)
             implementation(projects.feature.login)
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }

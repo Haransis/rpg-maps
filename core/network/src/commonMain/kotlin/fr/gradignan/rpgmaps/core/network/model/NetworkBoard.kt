@@ -8,17 +8,19 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class NetworkBoard(
     @SerialName("ID") val id: Int,
-    @SerialName("name") val name: String,
-    @SerialName("url") val url: String,
-    @SerialName("owner") val owner: String
+    val name: String,
+    val filename: String,
+    val owner: String,
+    val scale: Float
 )
 
 fun NetworkBoard.toExternal(): Board {
     return Board(
         id = id,
         name = name,
-        url = url,
-        owner = owner
+        filename = filename,
+        owner = owner,
+        scale = scale
     )
 }
 
