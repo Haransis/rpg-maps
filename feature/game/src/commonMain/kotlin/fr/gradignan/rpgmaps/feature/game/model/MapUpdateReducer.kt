@@ -102,9 +102,7 @@ class MapUpdateReducer(
             is MapUpdate.InitiativeOrder -> state.copy(
                 characters = state.characters.sortedBy { it.index in mapUpdate.order }
             )
-            is MapUpdate.LoadMap -> state.appendLog("- Loading map: ${
-                mapUpdate.mapFilename.substringAfterLast("/").substringBeforeLast(".")
-            }")
+            is MapUpdate.LoadMap -> state.appendLog("- Loading map")
             MapUpdate.NewTurn -> state.appendLog("- New Turn")
             is MapUpdate.Next -> {
                 val playingCharacter = state.characters.find { it.optionalId == mapUpdate.id }

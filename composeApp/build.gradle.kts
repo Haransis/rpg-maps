@@ -41,6 +41,9 @@ kotlin {
             implementation(projects.feature.home)
             implementation(projects.feature.login)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.core)
+            implementation(libs.coil)
+            implementation(libs.coil.ktor)
         }
     }
 }
