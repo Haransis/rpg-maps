@@ -6,8 +6,8 @@ import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.Result
 import fr.gradignan.rpgmaps.core.network.WebSocketClient
-import fr.gradignan.rpgmaps.core.network.model.NetworkMapCharacter
-import fr.gradignan.rpgmaps.core.network.model.toAddCharacter
+import fr.gradignan.rpgmaps.core.network.model.NetworkAddCharacter
+import fr.gradignan.rpgmaps.core.network.model.toMapCharacter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -37,7 +37,7 @@ class DefaultMapActionRepository(
         owner: String,
         order: List<Int>
     ): EmptyResult<DataError> = webSocketClient.sendMessage(MapAction.AddCharacter(
-        NetworkMapCharacter(owner = owner, characterId = characterId).toAddCharacter(), order
+        NetworkAddCharacter(owner = owner, characterId = characterId).toMapCharacter(), order
     ))
 
     override suspend fun startGame(): EmptyResult<DataError> =

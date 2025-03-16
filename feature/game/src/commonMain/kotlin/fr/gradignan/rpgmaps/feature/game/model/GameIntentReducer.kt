@@ -29,7 +29,7 @@ class GameIntentReducer(
                     state.copy(
                         ruler = DistancePath(listOf(intent.point, intent.point))
                     )
-                } else {
+                } else if (!state.isPingChecked) {
                     val clickedCharacter = findClickedCharacter(state, intent.point)
 
                     when {
@@ -37,6 +37,8 @@ class GameIntentReducer(
                         state.selectedMapCharacter?.owner == playerName || state.isGmChecked -> state.appendPath(intent.point)
                         else -> state.deselectCharacter()
                     }
+                } else {
+                    state
                 }
             }
             is GameIntent.PingCheck -> state.pingCheck(intent.change)

@@ -1,38 +1,36 @@
 package fr.gradignan.rpgmaps.core.network.model
 
-import fr.gradignan.rpgmaps.core.model.Character
-import fr.gradignan.rpgmaps.core.model.DataCharacter
 import fr.gradignan.rpgmaps.core.model.MapCharacter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class NetworkMapCharacter(
-    val owner: String? = null,
-    val name: String? = null,
-    val speed: Int? = null,
-    val color: String? = null,
+    val owner: String,
+    val name: String,
+    val speed: Int,
+    val color: String,
     @SerialName("cm_ID")
-    val cmId: Int? = null,
+    val cmId: Int,
     @SerialName("map_ID")
-    val mapId: Int? = null,
+    val mapId: Int,
     @SerialName("char_ID")
-    val characterId: Int? = null,
-    val x: Int? = null,
-    val y: Int? = null
+    val characterId: Int,
+    val x: Int,
+    val y: Int
 )
 
 fun NetworkMapCharacter.toExternal(): MapCharacter {
     return MapCharacter(
-            owner = owner!!,
-            name = name!!,
-            speed = speed!!.toFloat(),
-            color = color!!,
-            cmId = cmId!!,
-            mapId = mapId!!,
-            characterId = characterId!!,
-            x = x!!,
-            y = y!!
+            owner = owner,
+            name = name,
+            speed = speed.toFloat(),
+            color = color,
+            cmId = cmId,
+            mapId = mapId,
+            characterId = characterId,
+            x = x,
+            y = y
         )
     }
 
@@ -54,17 +52,3 @@ fun MapCharacter.toNetwork(): NetworkMapCharacter {
 }
 
 fun List<MapCharacter>.toNetwork(): List<NetworkMapCharacter> = map(MapCharacter::toNetwork)
-
-fun NetworkMapCharacter.toAddCharacter(): MapCharacter =
-    MapCharacter(
-        owner = owner!!,
-        name = "",
-        speed = 0f,
-        color = "",
-        cmId = 0,
-        mapId = 0,
-        characterId = characterId!!,
-        x = 0,
-        y = 0
-    )
-
