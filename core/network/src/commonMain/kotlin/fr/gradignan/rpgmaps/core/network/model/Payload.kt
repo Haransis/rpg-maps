@@ -17,7 +17,6 @@ sealed interface IncomingPayload
 @JsonClassDiscriminator("action")
 sealed interface OutgoingPayload
 
-// Connect
 @Serializable
 @SerialName("Connect")
 data class PayloadConnect(
@@ -29,7 +28,6 @@ data class ConnectData(
     val username: String,
 )
 
-// StartGame
 @Serializable
 @SerialName("Initiative")
 data class PayloadStartGame(
@@ -39,7 +37,6 @@ data class PayloadStartGame(
 @Serializable
 data object EmptyData
 
-// InitiativeOrder
 @Serializable
 @SerialName("InitiativeOrder")
 data class PayloadInitiativeOrder(
@@ -51,7 +48,6 @@ data class InitiativeOrderData(
     val order: List<Int>
 )
 
-// Initiate
 @Serializable
 @SerialName("Initiate")
 data class PayloadInitiate(
@@ -63,7 +59,6 @@ data class InitiateData(
     val characters: List<NetworkMapCharacter>
 )
 
-// LoadMap
 @Serializable
 @SerialName("LoadMap")
 data class PayloadLoadMapOutput(
@@ -75,7 +70,6 @@ data class LoadMapDataOutput(
     @SerialName("map_ID") val id: Int
 )
 
-// LoadMap
 @Serializable
 @SerialName("LoadMap")
 data class PayloadLoadMapInput(
@@ -88,7 +82,6 @@ data class LoadMapInputData(
     @SerialName("map_scale") val mapScale: Float
 )
 
-// AddCharacterInput
 @Serializable
 @SerialName("AddChar")
 data class PayloadAddCharacterInput(
@@ -101,7 +94,6 @@ data class AddCharacterInputData(
     val order: List<Int>
 )
 
-// AddCharacterOutput
 @Serializable
 @SerialName("NewChar")
 data class PayloadAddCharacterOutput(
@@ -113,7 +105,6 @@ data class AddCharacterOutputData(
     val character: NetworkMapCharacter
 )
 
-// Move
 @Serializable
 @SerialName("Move")
 data class PayloadMove(
@@ -126,17 +117,15 @@ data class MoveData(
     val x: Int,
     val y: Int,
     val owner: String,
-    val id: Int
+    @SerialName("cm_id") val cmId: Int
 )
 
-// NewTurn
 @Serializable
 @SerialName("NewTurn")
 data class PayloadNewTurn(
     val data: EmptyData = EmptyData
 ) : IncomingPayload, OutgoingPayload
 
-// Next
 @Serializable
 @SerialName("Next")
 data class PayloadNext(
@@ -148,7 +137,6 @@ data class NextData(
     @SerialName("cm_ID") val cmId: Int
 )
 
-// Ping
 @Serializable
 @SerialName("Ping")
 data class PayloadPing(
@@ -161,7 +149,6 @@ data class PingData(
     val y: Float
 )
 
-// GMGetMap
 @Serializable
 @SerialName("GMGetMap")
 data class PayloadGMGetMap(
@@ -178,7 +165,7 @@ fun IncomingPayload.toMapAction(): MapAction =
         is PayloadConnect -> MapAction.Connect(data.username)
         is PayloadInitiate -> MapAction.Initiate(data.characters.toExternal())
         is PayloadLoadMapInput -> MapAction.LoadMap(data.id, "${BuildKonfig.baseUrl}/maps/map-image/${data.id}", data.mapScale)
-        is PayloadMove -> MapAction.Move(data.name, data.x, data.y, data.owner, data.id)
+        is PayloadMove -> MapAction.Move(data.name, data.x, data.y, data.owner, data.cmId)
         is PayloadNewTurn -> MapAction.NewTurn
         is PayloadNext -> MapAction.Next(data.cmId)
         is PayloadPing -> MapAction.Ping(data.x.toInt(), data.y.toInt())
