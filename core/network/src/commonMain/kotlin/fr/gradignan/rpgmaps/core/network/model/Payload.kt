@@ -1,66 +1,13 @@
 package fr.gradignan.rpgmaps.core.network.model
 
 import fr.gradignan.rpgmaps.core.model.MapAction
-import fr.gradignan.rpgmaps.core.model.MapEffect
-import fr.gradignan.rpgmaps.core.model.MapUpdate
 import fr.gradignan.rpgmaps.core.network.BuildKonfig
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonClassDiscriminator
 
-/*@Serializable
-sealed class Payload {
-    @SerialName("Connect")
-    @Serializable
-    data class ServerConnect(val user: String) : Payload()
 
-    @SerialName("Initiative")
-    @Serializable
-    data object ServerStartGame : Payload()
-
-    @SerialName("InitiativeOrder")
-    @Serializable
-    data class ServerInitiativeOrder(val order: List<Int>) : Payload()
-
-    @SerialName("Initiate")
-    @Serializable
-    data class ServerInitiate(val characters: List<NetworkMapCharacter>) : Payload()
-
-    @SerialName("LoadMap")
-    @Serializable
-    data class ServerLoadMap(@SerialName("map_ID") val id: Int?, @SerialName("map_filename") val mapFilename: String, @SerialName("map_scale") val mapScale: Float) : Payload()
-
-    @SerialName("AddChar")
-    @Serializable
-    data class ServerAddCharacterInput(val character: NetworkMapCharacter, val order: List<Int>) : Payload()
-
-    @SerialName("NewChar")
-    @Serializable
-    data class ServerAddCharacterOutput(val character: NetworkMapCharacter) : Payload()
-
-    @SerialName("Move")
-    @Serializable
-    data class ServerMove(val name: String, val x: Int, val y: Int, val owner: String, val id: Int) : Payload()
-
-    @SerialName("NewTurn")
-    @Serializable
-    data object ServerNewTurn : Payload()
-
-    @SerialName("Next")
-    @Serializable
-    data class ServerNext(@SerialName("cm_ID") val cmId: Int) : Payload()
-
-    @SerialName("Ping")
-    @Serializable
-    data class ServerPing(val x: Float, val y: Float) : Payload()
-
-    @SerialName("GMGetMap")
-    @Serializable
-    data class ServerGMGetMap(val characters: List<NetworkMapCharacter>) : Payload()
-}*/
-
-// Base interface for all payloads
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @JsonClassDiscriminator("action")
@@ -228,29 +175,29 @@ data class GMGetMapData(
 
 fun IncomingPayload.toMapAction(): MapAction =
     when (this) {
-        is PayloadConnect -> MapUpdate.Connect(data.username)
-        is PayloadInitiate -> MapUpdate.Initiate(data.characters.toExternal())
-        is PayloadLoadMapInput -> MapUpdate.LoadMap(data.id, "${BuildKonfig.baseUrl}/maps/map-image/${data.id}", data.mapScale)
-        is PayloadMove -> MapUpdate.Move(data.name, data.x, data.y, data.owner, data.id)
-        is PayloadNewTurn -> MapUpdate.NewTurn
-        is PayloadNext -> MapUpdate.Next(data.cmId)
-        is PayloadPing -> MapEffect.Ping(data.x.toInt(), data.y.toInt())
-        is PayloadGMGetMap -> MapUpdate.GMGetMap(data.characters.toExternal())
-        is PayloadAddCharacterOutput -> MapUpdate.AddCharacter(data.character.toExternal(), emptyList())
-        is PayloadInitiativeOrder -> MapUpdate.InitiativeOrder(data.order)
+        is PayloadConnect -> MapAction.Connect(data.username)
+        is PayloadInitiate -> MapAction.Initiate(data.characters.toExternal())
+        is PayloadLoadMapInput -> MapAction.LoadMap(data.id, "${BuildKonfig.baseUrl}/maps/map-image/${data.id}", data.mapScale)
+        is PayloadMove -> MapAction.Move(data.name, data.x, data.y, data.owner, data.id)
+        is PayloadNewTurn -> MapAction.NewTurn
+        is PayloadNext -> MapAction.Next(data.cmId)
+        is PayloadPing -> MapAction.Ping(data.x.toInt(), data.y.toInt())
+        is PayloadGMGetMap -> MapAction.GMGetMap(data.characters.toExternal())
+        is PayloadAddCharacterOutput -> MapAction.AddCharacter(data.character.toExternal(), emptyList())
+        is PayloadInitiativeOrder -> MapAction.InitiativeOrder(data.order)
         is PayloadAddCharacterInput, is PayloadStartGame -> throw IllegalStateException("not handled")
     }
 
 fun MapAction.toOutgoingPayload(): OutgoingPayload =
     when (this) {
-        is MapEffect.Ping -> PayloadPing(PingData(x.toFloat(), y.toFloat()))
-        is MapUpdate.Connect -> PayloadConnect(ConnectData(user))
-        is MapUpdate.Initiate -> PayloadStartGame()
-        is MapUpdate.LoadMap -> PayloadLoadMapOutput(LoadMapDataOutput(id))
-        is MapUpdate.Move -> PayloadMove(MoveData(name, x, y, owner, id))
-        MapUpdate.NewTurn -> PayloadNewTurn()
-        is MapUpdate.Next -> PayloadNext(NextData(id))
-        is MapUpdate.GMGetMap -> PayloadGMGetMap(GMGetMapData(mapCharacters.toNetwork()))
-        is MapUpdate.AddCharacter -> PayloadAddCharacterInput(AddCharacterInputData(character.toNetwork(), order))
-        is MapUpdate.InitiativeOrder -> PayloadInitiativeOrder(InitiativeOrderData(order))
+        is MapAction.Ping -> PayloadPing(PingData(x.toFloat(), y.toFloat()))
+        is MapAction.Connect -> PayloadConnect(ConnectData(user))
+        is MapAction.Initiate -> PayloadStartGame()
+        is MapAction.LoadMap -> PayloadLoadMapOutput(LoadMapDataOutput(id))
+        is MapAction.Move -> PayloadMove(MoveData(name, x, y, owner, id))
+        MapAction.NewTurn -> PayloadNewTurn()
+        is MapAction.Next -> PayloadNext(NextData(id))
+        is MapAction.GMGetMap -> PayloadGMGetMap(GMGetMapData(mapCharacters.toNetwork()))
+        is MapAction.AddCharacter -> PayloadAddCharacterInput(AddCharacterInputData(character.toNetwork(), order))
+        is MapAction.InitiativeOrder -> PayloadInitiativeOrder(InitiativeOrderData(order))
     }

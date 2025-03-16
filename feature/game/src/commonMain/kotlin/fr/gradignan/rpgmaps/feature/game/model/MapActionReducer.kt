@@ -2,31 +2,31 @@ package fr.gradignan.rpgmaps.feature.game.model
 
 
 import fr.gradignan.rpgmaps.core.model.DataError
-import fr.gradignan.rpgmaps.core.model.MapUpdate
+import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.Result
 import fr.gradignan.rpgmaps.core.ui.error.toUiText
 
 
-class MapUpdateReducer(
+class MapActionReducer(
     private val playerName: String,
     private val isAdmin: Boolean
 ) {
-    fun reduceMapUpdateResult(currentState: GameState, mapUpdateResult: Result<MapUpdate, DataError>): GameState =
-        when (mapUpdateResult) {
-            is Result.Error -> reduceError(currentState, mapUpdateResult.error)
-            is Result.Success -> reduce(currentState, mapUpdateResult.data)
+    fun reduceMapActionResult(currentState: GameState, mapActionResult: Result<MapAction, DataError>): GameState =
+        when (mapActionResult) {
+            is Result.Error -> reduceError(currentState, mapActionResult.error)
+            is Result.Success -> reduce(currentState, mapActionResult.data)
         }
 
-    private fun reduce(currentState: GameState, mapUpdate: MapUpdate): GameState =
+    private fun reduce(currentState: GameState, mapAction: MapAction): GameState =
         when (currentState) {
             is GameState.Active ->
                 currentState.copy(
-                    mapState = reduceMapState(currentState.mapState, mapUpdate),
-                    hudState = reduceHudState(currentState.hudState, mapUpdate),
+                    mapState = reduceMapState(currentState.mapState, mapAction),
+                    hudState = reduceHudState(currentState.hudState, mapAction),
                 )
             else -> GameState.Active(
-                mapState = reduceMapState(MapState(isAdmin = isAdmin), mapUpdate),
-                hudState = reduceHudState(HUDState(isAdmin = isAdmin), mapUpdate),
+                mapState = reduceMapState(MapState(isAdmin = isAdmin), mapAction),
+                hudState = reduceHudState(HUDState(isAdmin = isAdmin), mapAction),
             )
         }
 
@@ -56,19 +56,19 @@ class MapUpdateReducer(
         )
     }
 
-    private fun reduceMapState(state: MapState, mapUpdate: MapUpdate): MapState {
-        return when (mapUpdate) {
-            is MapUpdate.AddCharacter -> state.copy(mapCharacters = state.mapCharacters + mapUpdate.character)
-            is MapUpdate.GMGetMap -> if (isAdmin) {
-                state.copy(mapCharacters = mapUpdate.mapCharacters)
+    private fun reduceMapState(state: MapState, mapAction: MapAction): MapState {
+        return when (mapAction) {
+            is MapAction.AddCharacter -> state.copy(mapCharacters = state.mapCharacters + mapAction.character)
+            is MapAction.GMGetMap -> if (isAdmin) {
+                state.copy(mapCharacters = mapAction.mapCharacters)
             } else {
                 state
             }
-            is MapUpdate.Initiate -> state.copy(mapCharacters = mapUpdate.mapCharacters)
-            is MapUpdate.LoadMap -> state.copy(imageUrl = mapUpdate.mapFilename)
-            is MapUpdate.Move -> state.moveCharacter(mapUpdate)
-            is MapUpdate.Next -> {
-                val playingCharacter = state.mapCharacters.find { it.cmId == mapUpdate.id }
+            is MapAction.Initiate -> state.copy(mapCharacters = mapAction.mapCharacters)
+            is MapAction.LoadMap -> state.copy(imageUrl = mapAction.mapFilename)
+            is MapAction.Move -> state.moveCharacter(mapAction)
+            is MapAction.Next -> {
+                val playingCharacter = state.mapCharacters.find { it.cmId == mapAction.id }
                 if (playingCharacter != null) {
                     state.copy(
                         playingMapCharacter = playingCharacter,
@@ -80,32 +80,39 @@ class MapUpdateReducer(
                     state
                 }
             }
-            MapUpdate.NewTurn,
-            is MapUpdate.InitiativeOrder,
-            is MapUpdate.Connect -> state
+            is MapAction.Ping -> {
+                state.copy(pings = if (state.pings.contains(mapAction)){
+                    state.pings.filterNot { it.x == mapAction.x && it.y == mapAction.y }
+                } else {
+                    state.pings + mapAction
+                })
+            }
+            MapAction.NewTurn,
+            is MapAction.InitiativeOrder,
+            is MapAction.Connect -> state
         }
     }
 
-    private fun reduceHudState(state: HUDState, mapUpdate: MapUpdate): HUDState {
-        return when (mapUpdate) {
-            is MapUpdate.AddCharacter -> state.appendLog("- ${mapUpdate.character.name} added")
-                .copy(characters = state.characters + mapUpdate.character.toCharItem(state.characters.size))
-            is MapUpdate.Connect -> state.appendLog("- ${mapUpdate.user} connected")
-            is MapUpdate.GMGetMap -> if (isAdmin) {
-                state.copy(characters = mapUpdate.mapCharacters.toCharItems())
+    private fun reduceHudState(state: HUDState, mapAction: MapAction): HUDState {
+        return when (mapAction) {
+            is MapAction.AddCharacter -> state.appendLog("- ${mapAction.character.name} added")
+                .copy(characters = state.characters + mapAction.character.toCharItem(state.characters.size))
+            is MapAction.Connect -> state.appendLog("- ${mapAction.user} connected")
+            is MapAction.GMGetMap -> if (isAdmin) {
+                state.copy(characters = mapAction.mapCharacters.toCharItems())
             } else {
                 state
             }
-            is MapUpdate.Initiate -> state.appendLog("- Starting game").copy(
-                characters = mapUpdate.mapCharacters.toCharItems()
+            is MapAction.Initiate -> state.appendLog("- Starting game").copy(
+                characters = mapAction.mapCharacters.toCharItems()
             )
-            is MapUpdate.InitiativeOrder -> state.copy(
-                characters = state.characters.sortedBy { it.index in mapUpdate.order }
+            is MapAction.InitiativeOrder -> state.copy(
+                characters = state.characters.sortedBy { it.index in mapAction.order }
             )
-            is MapUpdate.LoadMap -> state.appendLog("- Loading map")
-            MapUpdate.NewTurn -> state.appendLog("- New Turn")
-            is MapUpdate.Next -> {
-                val playingCharacter = state.characters.find { it.optionalId == mapUpdate.id }
+            is MapAction.LoadMap -> state.appendLog("- Loading map")
+            MapAction.NewTurn -> state.appendLog("- New Turn")
+            is MapAction.Next -> {
+                val playingCharacter = state.characters.find { it.optionalId == mapAction.id }
                 if (playingCharacter != null) {
                     state.appendLog("- ${playingCharacter.name} is playing")
                         .copy(isPlayerTurn = playingCharacter.owner == playerName)
@@ -113,11 +120,12 @@ class MapUpdateReducer(
                     state
                 }
             }
-            is MapUpdate.Move -> state
+            is MapAction.Ping,
+            is MapAction.Move -> state
         }
     }
 
-    private fun MapState.moveCharacter(move: MapUpdate.Move): MapState {
+    private fun MapState.moveCharacter(move: MapAction.Move): MapState {
         val updatedCharacters = this.mapCharacters.toMutableList().apply {
             this.indexOfFirst { it.cmId == move.id }.takeIf { it != -1 }
                 ?.let { index ->

@@ -3,18 +3,15 @@ package fr.gradignan.rpgmaps.feature.game.ui.viewmodel
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import fr.gradignan.rpgmaps.core.common.updateIfIs
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.EmptyResult
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
-import fr.gradignan.rpgmaps.core.model.MapEffect
-import fr.gradignan.rpgmaps.core.model.MapUpdate
+import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.Result
-import fr.gradignan.rpgmaps.feature.game.model.MapState
 import fr.gradignan.rpgmaps.feature.game.model.GameIntent
 import fr.gradignan.rpgmaps.feature.game.model.GameIntentReducer
 import fr.gradignan.rpgmaps.feature.game.model.GameState
-import fr.gradignan.rpgmaps.feature.game.model.MapUpdateReducer
+import fr.gradignan.rpgmaps.feature.game.model.MapActionReducer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,38 +23,32 @@ import kotlinx.coroutines.launch
 
 class GameViewModel(
     private val playerName: String,
+    private val mapActionRepository: MapActionRepository,
     isAdmin: Boolean,
-    private val mapActionRepository: MapActionRepository
 ): ViewModel() {
 
-    private val mapUpdateReducer = MapUpdateReducer(playerName, isAdmin)
+    private val mapActionReducer = MapActionReducer(playerName, isAdmin)
     private val gameIntentReducer = GameIntentReducer(playerName)
-    private val mapResultUpdates: Flow<Result<MapUpdate, DataError>> = mapActionRepository.getMapUpdatesFlow()
-    private val mapEffects: Flow<MapEffect> = mapActionRepository.getMapEffectsFlow()
+    private val mapActions: Flow<Result<MapAction, DataError>> = mapActionRepository.getMapActionsFlow()
 
     private val _gameState: MutableStateFlow<GameState> = MutableStateFlow(GameState.Loading)
     val gameState = _gameState.asStateFlow()
 
     init {
-        mapResultUpdates.onEach { result ->
-            _gameState.update { mapUpdateReducer.reduceMapUpdateResult(it, result) }
-        }.launchIn(viewModelScope)
-        mapEffects.onEach { effect ->
-            when (effect) {
-                is MapEffect.Ping -> handleNewPing(effect)
+        mapActions.onEach { result ->
+            if (result is Result.Success && result.data is MapAction.Ping) {
+                handleNewPing(result.data as MapAction.Ping)
             }
+            _gameState.update { mapActionReducer.reduceMapActionResult(it, result) }
         }.launchIn(viewModelScope)
     }
 
-    private fun handleNewPing(ping: MapEffect.Ping) {
-        _gameState.updateIfIs<MapState> {
-            it.copy(pings = it.pings + ping)
-        }
+    private fun handleNewPing(ping: MapAction.Ping) {
         viewModelScope.launch {
             delay(3000)
-            _gameState.updateIfIs<MapState> { state ->
-                state.copy(
-                    pings = state.pings.filterNot { it.x == ping.x && it.y == ping.y }
+            _gameState.update {
+                mapActionReducer.reduceMapActionResult(
+                    it, Result.Success(MapAction.Ping(ping.x, ping.y))
                 )
             }
         }
@@ -94,7 +85,7 @@ class GameViewModel(
         val shouldPing = (_gameState.value as? GameState.Active)?.mapState?.isPingChecked
         if (shouldPing == true) {
             viewModelScope.launch {
-                mapActionRepository.sendPing(MapEffect.Ping(point.x.toInt(), point.y.toInt()))
+                mapActionRepository.sendPing(MapAction.Ping(point.x.toInt(), point.y.toInt()))
                     .handleError()
             }
         }
@@ -102,7 +93,7 @@ class GameViewModel(
 
     private fun EmptyResult<DataError>.handleError() {
         if (this is Result.Error)
-            _gameState.update { mapUpdateReducer.reduceError(it, error) }
+            _gameState.update { mapActionReducer.reduceError(it, error) }
     }
 
     private fun sendMove() {
@@ -114,7 +105,7 @@ class GameViewModel(
             ) return
             viewModelScope.launch {
                 mapActionRepository.sendMove(
-                    MapUpdate.Move(
+                    MapAction.Move(
                         name = selectedMapCharacter.name,
                         x = previewPath.reachable.last().x.toInt(),
                         y = previewPath.reachable.last().y.toInt(),
@@ -132,7 +123,7 @@ class GameViewModel(
 
     private fun sendChangeInitiative(order: List<Int>) =
         viewModelScope.launch {
-            mapActionRepository.sendInitiativeOrder(MapUpdate.InitiativeOrder(order))
+            mapActionRepository.sendInitiativeOrder(MapAction.InitiativeOrder(order))
                 .handleError()
         }
 

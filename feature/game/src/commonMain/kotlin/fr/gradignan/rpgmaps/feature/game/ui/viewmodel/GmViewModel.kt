@@ -7,7 +7,7 @@ import fr.gradignan.rpgmaps.core.common.updateIfIs
 import fr.gradignan.rpgmaps.core.model.DataError
 import fr.gradignan.rpgmaps.core.model.MapActionRepository
 import fr.gradignan.rpgmaps.core.model.MapCharacter
-import fr.gradignan.rpgmaps.core.model.MapUpdate
+import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.core.model.Result
 import fr.gradignan.rpgmaps.core.model.RoomRepository
 import fr.gradignan.rpgmaps.core.model.onSuccess
@@ -59,12 +59,12 @@ class GmViewModel(
     }
 
     private fun fetchMapCharacters() {
-        mapActionRepository.getMapUpdatesFlow().onEach { result ->
+        mapActionRepository.getMapActionsFlow().onEach { result ->
             result.onSuccess {
-                if (it is MapUpdate.GMGetMap) {
+                if (it is MapAction.GMGetMap) {
                     mapCharacters = it.mapCharacters
                 }
-                if (it is MapUpdate.Initiate) {
+                if (it is MapAction.Initiate) {
                     mapCharacters = it.mapCharacters
                 }
             }.handleDataError()
@@ -88,7 +88,7 @@ class GmViewModel(
             if (it.selectedBoard == null) return
             viewModelScope.launch {
                 mapActionRepository
-                    .sendLoadMap(MapUpdate.LoadMap(it.selectedBoard.id, it.selectedBoard.name, 0f))
+                    .sendLoadMap(MapAction.LoadMap(it.selectedBoard.id, it.selectedBoard.name, 0f))
                     .handleDataError()
             }
         }

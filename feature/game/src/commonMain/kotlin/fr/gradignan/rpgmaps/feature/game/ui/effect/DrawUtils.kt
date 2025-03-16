@@ -3,7 +3,7 @@ package fr.gradignan.rpgmaps.feature.game.ui.effect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import fr.gradignan.rpgmaps.core.model.MapEffect
+import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.feature.game.ui.map.CoordinatesConverter
 
 
@@ -19,7 +19,7 @@ internal fun DrawScope.drawLaser(
 }
 
 internal fun DrawScope.drawPings(
-    pings: List<MapEffect.Ping>,
+    pings: List<MapAction.Ping>,
     coordinatesConverter: CoordinatesConverter,
     radius: Float,
     pingColor: Color

@@ -11,14 +11,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import fr.gradignan.rpgmaps.core.model.MapEffect
+import fr.gradignan.rpgmaps.core.model.MapAction
 import fr.gradignan.rpgmaps.feature.game.PING_RADIUS_PX
 import fr.gradignan.rpgmaps.feature.game.ui.map.CoordinatesConverter
 
 
 @Composable
 internal fun AnimationsOverlay(
-    pings: List<MapEffect.Ping>,
+    pings: List<MapAction.Ping>,
     transformer: CoordinatesConverter,
     modifier: Modifier = Modifier
 ) {
