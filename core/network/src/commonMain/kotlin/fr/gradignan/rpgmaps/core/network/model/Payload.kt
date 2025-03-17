@@ -83,26 +83,26 @@ data class LoadMapInputData(
 )
 
 @Serializable
-@SerialName("AddChar")
+@SerialName("NewChar")
 data class PayloadAddCharacterInput(
     val data: AddCharacterInputData
 ) : IncomingPayload
 
 @Serializable
 data class AddCharacterInputData(
-    val character: NetworkMapCharacter,
-    val order: List<Int>
+    val character: NetworkMapCharacter
 )
 
 @Serializable
-@SerialName("NewChar")
+@SerialName("AddChar")
 data class PayloadAddCharacterOutput(
     val data: AddCharacterOutputData
 ) : OutgoingPayload
 
 @Serializable
 data class AddCharacterOutputData(
-    val character: NetworkAddCharacter
+    val character: NetworkAddCharacter,
+    val order: List<Int>
 )
 
 @Serializable
@@ -171,7 +171,8 @@ fun IncomingPayload.toMapAction(): MapAction =
         is PayloadPing -> MapAction.Ping(data.x.toInt(), data.y.toInt())
         is PayloadGMGetMap -> MapAction.GMGetMap(data.characters.toExternal())
         is PayloadInitiativeOrder -> MapAction.InitiativeOrder(data.order)
-        is PayloadAddCharacterInput, is PayloadStartGame -> throw IllegalStateException("not handled")
+        is PayloadAddCharacterInput -> MapAction.AddCharacter(data.character.toExternal(), emptyList())
+        is PayloadStartGame -> MapAction.Initiate(emptyList())
     }
 
 fun MapAction.toOutgoingPayload(): OutgoingPayload =
@@ -185,5 +186,5 @@ fun MapAction.toOutgoingPayload(): OutgoingPayload =
         is MapAction.Next -> PayloadNext(NextData(id))
         is MapAction.GMGetMap -> PayloadGMGetMap(GMGetMapData(mapCharacters.toNetwork()))
         is MapAction.InitiativeOrder -> PayloadInitiativeOrder(InitiativeOrderData(order))
-        is MapAction.AddCharacter -> PayloadAddCharacterOutput(AddCharacterOutputData(character.toAddCharacter()))
+        is MapAction.AddCharacter -> PayloadAddCharacterOutput(AddCharacterOutputData(character.toAddCharacter(), order))
     }

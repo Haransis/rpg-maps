@@ -80,6 +80,7 @@ class KtorWebSocketClient(
                 }
                 try {
                     val jsonString = encoder.encodeToString(mapAction.toOutgoingPayload())
+                    Logger.d(jsonString)
                     ws!!.send(Frame.Text(jsonString))
                     Result.Success(Unit)
                 } catch (e: SerializationException) {

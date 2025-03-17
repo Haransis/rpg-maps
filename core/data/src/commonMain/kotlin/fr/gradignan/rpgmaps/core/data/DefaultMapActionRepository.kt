@@ -37,7 +37,7 @@ class DefaultMapActionRepository(
         owner: String,
         order: List<Int>
     ): EmptyResult<DataError> = webSocketClient.sendMessage(MapAction.AddCharacter(
-        NetworkAddCharacter(owner = owner, characterId = characterId).toMapCharacter(), order
+        NetworkAddCharacter(owner = owner, characterId = characterId, x = 0, y = 0).toMapCharacter(), order
     ))
 
     override suspend fun startGame(): EmptyResult<DataError> =

@@ -9,6 +9,8 @@ data class NetworkAddCharacter(
     val owner: String,
     @SerialName("char_ID")
     val characterId: Int,
+    val x: Int,
+    val y: Int
 )
 
 fun NetworkAddCharacter.toMapCharacter(): MapCharacter =
@@ -20,12 +22,14 @@ fun NetworkAddCharacter.toMapCharacter(): MapCharacter =
         cmId = 0,
         mapId = 0,
         characterId = characterId,
-        x = 0,
-        y = 0
+        x = x,
+        y = y
     )
 
 fun MapCharacter.toAddCharacter(): NetworkAddCharacter =
     NetworkAddCharacter(
         owner = owner,
-        characterId = characterId
+        characterId = characterId,
+        x = x,
+        y = y
     )
