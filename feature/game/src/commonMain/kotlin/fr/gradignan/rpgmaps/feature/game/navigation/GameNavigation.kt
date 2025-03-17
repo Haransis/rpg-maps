@@ -30,7 +30,7 @@ fun NavGraphBuilder.gameScreen(
         with(entry.toRoute<Game>()) {
             GameScreenRoute(
                 viewModel = koinViewModel { parametersOf(username, roomId, admin) },
-                gmViewModel = koinViewModel { parametersOf(username) },
+                gmViewModel = koinViewModel { parametersOf(username, admin) },
                 onBack = onBack
             )
         }

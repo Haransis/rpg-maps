@@ -23,17 +23,20 @@ import kotlinx.coroutines.flow.update
 
 class GmViewModel(
     private val username: String,
+    isAdmin: Boolean,
     private val mapActionRepository: MapActionRepository,
-    private val roomRepository: RoomRepository
+    private val roomRepository: RoomRepository,
 ): ViewModel() {
     private var mapCharacters: List<MapCharacter> = emptyList()
     private val _gmState: MutableStateFlow<GmState> = MutableStateFlow(GmState.Loading)
     val gmState: StateFlow<GmState> = _gmState.asStateFlow()
 
     init {
-        fetchBoards()
-        fetchMapCharacters()
-        fetchAllCharacters()
+        if (isAdmin){
+            fetchBoards()
+            fetchMapCharacters()
+            fetchAllCharacters()
+        }
     }
 
     private fun fetchBoards() = viewModelScope.launch {

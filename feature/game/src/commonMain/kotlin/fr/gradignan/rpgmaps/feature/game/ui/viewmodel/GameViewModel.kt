@@ -118,7 +118,7 @@ class GameViewModel(
     }
 
     private fun sendDeleteChar(index: Int) {
-        TODO("Not yet implemented")
+        TODO("DeleteChar $index. Not yet implemented")
     }
 
     private fun sendChangeInitiative(order: List<Int>) =
