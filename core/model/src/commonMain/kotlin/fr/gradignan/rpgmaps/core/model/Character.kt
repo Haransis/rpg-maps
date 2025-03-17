@@ -6,7 +6,7 @@ data class DataCharacter(
     val owner: String,
     val name: String,
     val speed: Float,
-    val id: Int,
+    val cmId: Int,
     val color: String
 ): Character
 

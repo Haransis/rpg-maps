@@ -101,7 +101,7 @@ class GmViewModel(
             viewModelScope.launch {
                 Logger.d("mapCharacters: ${mapCharacters}, ${mapCharacters.size}")
                 mapActionRepository.sendAddCharacter(
-                    characterId = character.id,
+                    characterId = character.cmId,
                     owner = username,
                     order = mapCharacters.map { it.cmId } + (mapCharacters.size+1)
                 ).handleDataError()

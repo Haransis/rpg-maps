@@ -1,6 +1,7 @@
 package fr.gradignan.rpgmaps.feature.game.model
 
 import androidx.compose.ui.geometry.Offset
+import co.touchlab.kermit.Logger
 import fr.gradignan.rpgmaps.core.model.MapCharacter
 import fr.gradignan.rpgmaps.feature.game.CHARACTER_RADIUS
 
@@ -31,9 +32,9 @@ class GameIntentReducer(
                     )
                 } else if (!state.isPingChecked) {
                     val clickedCharacter = findClickedCharacter(state, intent.point)
-
+                    Logger.d("clickedCharacter: $clickedCharacter")
                     when {
-                        clickedCharacter != null -> selectCharacter(state, clickedCharacter)
+                        clickedCharacter != null -> state.selectCharacter(clickedCharacter)
                         state.selectedMapCharacter?.owner == playerName || state.isGmChecked -> state.appendPath(intent.point)
                         else -> state.deselectCharacter()
                     }
@@ -103,12 +104,12 @@ class GameIntentReducer(
         }
     }
 
-    private fun selectCharacter(state: MapState, mapCharacter: MapCharacter): MapState {
+    private fun MapState.selectCharacter(mapCharacter: MapCharacter): MapState {
         if (
-            (mapCharacter.owner == playerName && state.isPlayerTurn) || state.isGmChecked
+            (mapCharacter.owner == playerName && this.playingMapCharacter?.cmId == mapCharacter.cmId) || this.isGmChecked
         ) {
             val characterPosition = Offset(mapCharacter.x.toFloat(), mapCharacter.y.toFloat())
-            return state.copy(
+            return this.copy(
                 selectedMapCharacter = mapCharacter,
                 previewPath = DistancePath(
                     reachable = listOf(characterPosition, characterPosition),
@@ -117,7 +118,7 @@ class GameIntentReducer(
                 )
             )
         } else {
-            return state.copy(selectedMapCharacter = mapCharacter)
+            return this.copy(selectedMapCharacter = mapCharacter)
         }
     }
 }

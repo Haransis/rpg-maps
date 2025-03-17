@@ -1,6 +1,5 @@
 package fr.gradignan.rpgmaps.core.network.model
 
-import fr.gradignan.rpgmaps.core.model.Character
 import fr.gradignan.rpgmaps.core.model.DataCharacter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -20,7 +19,7 @@ fun NetworkDataCharacter.toExternal(): DataCharacter {
             name = name,
             speed = speed.toFloat(),
             color = color,
-            id = id
+            cmId = id
         )
     }
 
@@ -33,7 +32,7 @@ fun DataCharacter.toNetwork(): NetworkDataCharacter {
         name = name,
         speed = speed.toInt(),
         color = color,
-        id = id
+        id = cmId
     )
 }
 
@@ -45,6 +44,6 @@ fun NetworkDataCharacter.toAddCharacter(): DataCharacter =
         name = "",
         speed = 0f,
         color = "",
-        id = id
+        cmId = id
     )
 
