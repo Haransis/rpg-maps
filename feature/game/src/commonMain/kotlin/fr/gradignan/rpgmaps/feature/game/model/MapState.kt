@@ -12,7 +12,7 @@ data class MapState(
     val laserPosition: Offset? = null,
     val isPingChecked: Boolean = false,
     val isRulerChecked: Boolean = false,
-    val mapScale: Float = 30f,
+    val mapScale: Float = 0f,
     val mapCharacters: List<MapCharacter> = emptyList(),
     val selectedMapCharacter: MapCharacter? = null,
     val hoveredCharacterId: Int? = null,

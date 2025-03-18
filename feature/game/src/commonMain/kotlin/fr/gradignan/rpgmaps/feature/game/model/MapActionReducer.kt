@@ -65,7 +65,7 @@ class MapActionReducer(
                 state
             }
             is MapAction.Initiate -> state.copy(mapCharacters = mapAction.mapCharacters)
-            is MapAction.LoadMap -> state.copy(imageUrl = mapAction.mapFilename)
+            is MapAction.LoadMap -> state.copy(imageUrl = mapAction.mapFilename, mapScale = mapAction.mapScale)
             is MapAction.Move -> state.moveCharacter(mapAction)
             is MapAction.Next -> {
                 val playingCharacter = state.mapCharacters.find { it.cmId == mapAction.id }
